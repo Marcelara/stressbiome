@@ -1,0 +1,616 @@
+---
+title: "Data_handling"
+author: "Marcela Aragon"
+date: "3/1/2024"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: 
+     collapsed: false
+     smooth_scroll: true
+    df_print: paged
+    code_folding: hide
+    keep_md: true
+editor_options: 
+  chunk_output_type: console
+---
+
+I feel there's a problem with the data: It was clear for me when plotting phytohormones and seeing that JA-Ile is much higher in plants infested with aphids than in plants infested with caterpillars, which doesn't make any sense. 
+
+Before I saw that if I used the 'filter' option in excel and then copy-paste the values, there is a mistake. A long time ago when I did this `feedback` and `conditioning` df's, I did it with copy-paste. Now I would like to try to do it in R so it's less prone to mistakes. 
+
+
+## Rmarkdown settings 
+
+```{r global settings, include=FALSE}
+
+#Set working directory to project directory 
+
+#Set global options for r chunks
+knitr::opts_chunk$set(
+  echo = TRUE,#show code
+  fig.width = 9,
+  fig.height = 6,
+  dpi = 300,
+  error=TRUE, #keep knitting even if error appears
+  message=FALSE, #don't show messages
+  warning=FALSE, #don't show warnings
+  collapse=FALSE)
+
+```
+
+## Loading packages
+
+```{r loading packages, echo=TRUE}
+
+library(knitr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tibble)
+library(readxl)
+
+```
+
+## Global settings for plots 
+
+```{r settings for plots}
+
+# Setting up white background for plots
+theme_set(theme_bw())
+
+# Set colors for soil_inocula
+color_soil_inocula <- c("gray", "whitesmoke", "yellow2", "steelblue")
+color_herbivory <- c("whitesmoke", "yellow2", "steelblue")
+
+# Set axis looks
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 10,
+                                               face = "bold", angle=45, hjust=1))+
+  theme(axis.text.y = element_text(colour = "black", size = 12, face = "bold"))+
+  theme(axis.title=element_text(size=15, face = "bold"))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))
+
+```
+
+# Biomass
+
+```{r biomass}
+
+```
+
+
+# Phytohormones
+
+```{r phytohormones}
+
+phytohormones <-read_excel("./data/raw_data/raw_phytohormones.xlsx", skip=3) 
+
+phytohormones <- phytohormones %>% 
+                 separate(name, c('Plate', 'Plate_place', 'ID', 'treatment',
+                                  'Herbivory_original','Experiment_original'), sep = '[-]')
+str(phytohormones)
+colnames(phytohormones)
+
+#removing weird column '...8'
+phytohormones <- phytohormones[ -c(13) ]
+
+#making factors 
+phytohormones[c(1:6)] <- lapply(phytohormones[c(1:6)], factor)
+
+#check
+levels(phytohormones$treatment)
+levels(phytohormones$Herbivory_original)
+levels(phytohormones$Experiment_original)
+
+#New columns:
+#Phase
+phytohormones <- phytohormones %>%  
+                   mutate(Phase =
+                            case_when(
+                              Experiment_original == "Family" ~ "conditioning",
+                              Experiment_original == "Haris" ~ "conditioning",
+                              Experiment_original == "Herbivory" ~ "feedback",
+                              Experiment_original == "Hormones" ~ "feedback")) 
+
+
+phytohormones <- phytohormones %>%  
+                   mutate(Experiment = 
+                         case_when(
+                              Experiment_original == "Family" ~ "phytohormones",
+                              Experiment_original == "Haris" ~ "real_insects",
+                              Experiment_original == "Herbivory" ~ "real_insects",
+                              Experiment_original == "Hormones" ~ "phytohormones")) 
+  
+
+phytohormones <- phytohormones %>%  
+                   mutate(herbivory = 
+                         case_when(
+                           Herbivory_original == "without" ~ "not-infested",
+                           Herbivory_original == "caterpillar" ~ "caterpillar-infested",
+                           Herbivory_original == "aphid" ~ "aphid-infested",
+                           Herbivory_original == "mock" ~ "mock-treated",
+                           Herbivory_original == "MeJA" ~ "MeJA-treated",
+                           Herbivory_original == "SA" ~ "SA-treated"))
+                           
+
+phytohormones <- phytohormones %>%  
+                   mutate(soil_inocula = 
+                         case_when(
+                           Phase == "conditioning" ~ "no-inocula",
+                           treatment == "control_live" ~ "non-conditioned",
+                           treatment == "aphid" ~ "aphid-conditioned",
+                           treatment == "caterpillar" ~ "caterpillar-conditioned",
+                           treatment == "MeJA" ~ "MeJA-conditioned",
+                           treatment == "SA" ~ "SA-conditioned",
+                           treatment == "control_plant" & Experiment == "phytohormones" ~ "mock-conditioned",
+                           treatment == "control_plant" & Experiment == "real_insects" ~ "uninfested-conditioned")) 
+
+# re-naming
+colnames(phytohormones)
+phytohormones <- phytohormones %>%  
+                   rename(sum_JA_Ile = 'sum JA-Ile',
+                          cis_OPDA = 'cis-OPDA',
+                          OH_JA = 'OH-JA',
+                          OH_JA_Ile = 'OH-JA-Ile',
+                          COOH_JA_Ile = 'COOH-JA-Ile')   
+
+#making new columns factors
+str(phytohormones)
+phytohormones[c(16:19)] <- lapply(phytohormones[c(16:19)], factor)
+summary(phytohormones)
+
+#deleting non-necessary columns 
+phytohormones <- phytohormones[ -c(4:6) ] #remove first column that appears automatically(?)
+
+#making new column 'Phytohormones' & removing those with NA's (not-dried samples for instance)
+phytohormones <- phytohormones %>% 
+                  mutate(Phytohormones = "1")%>% 
+                  tidyr::drop_na() 
+
+#save 
+saveRDS(phytohormones, file = "./data/R_data/phytohormones.rds")
+write.csv(phytohormones,"./data/csv/phytohormones.csv", row.names = FALSE)
+
+```
+
+Now I just need to be wary of the 'Loading data' section for each script as some names of treatments have changed (i.e. MeJA_treated by MeJA-treated)!
+
+# Glucosinolates 
+
+```{r glucosinolates}
+
+glucosinolates <-read_excel("./data/raw_data/raw_glucosinolates.xlsx", skip=2) 
+str(glucosinolates)
+
+#removing extra columns
+glucosinolates <- glucosinolates[ -c(11:13) ]
+
+#separate 1st column 
+glucosinolates <- glucosinolates %>% 
+                 separate(Name, c('Plate', 'Plate_place', 'ID', 'treatment',
+                                  'Herbivory_original','Experiment_original'), sep = '[-]')
+str(glucosinolates)
+colnames(glucosinolates)
+
+#making factors 
+glucosinolates[c(1:6)] <- lapply(glucosinolates[c(1:6)], factor)
+
+#check
+levels(glucosinolates$treatment)
+levels(glucosinolates$Herbivory_original)
+levels(glucosinolates$Experiment_original)
+
+#New columns:
+#Phase
+glucosinolates <- glucosinolates %>%  
+                   mutate(Phase =
+                            case_when(
+                              Experiment_original == "Family" ~ "conditioning",
+                              Experiment_original == "Haris" ~ "conditioning",
+                              Experiment_original == "Herbivory" ~ "feedback",
+                              Experiment_original == "Hormones" ~ "feedback")) 
+
+
+glucosinolates <- glucosinolates %>%  
+                   mutate(Experiment = 
+                         case_when(
+                              Experiment_original == "Family" ~ "phytohormones",
+                              Experiment_original == "Haris" ~ "real_insects",
+                              Experiment_original == "Herbivory" ~ "real_insects",
+                              Experiment_original == "Hormones" ~ "phytohormones")) 
+  
+
+glucosinolates <- glucosinolates %>%  
+                   mutate(herbivory = 
+                         case_when(
+                           Herbivory_original == "without" ~ "not-infested",
+                           Herbivory_original == "caterpillar" ~ "caterpillar-infested",
+                           Herbivory_original == "aphid" ~ "aphid-infested",
+                           Herbivory_original == "mock" ~ "mock-treated",
+                           Herbivory_original == "MeJA" ~ "MeJA-treated",
+                           Herbivory_original == "SA" ~ "SA-treated"))
+                           
+
+glucosinolates <- glucosinolates %>%  
+                   mutate(soil_inocula = 
+                         case_when(
+                           Phase == "conditioning" ~ "No-inocula",
+                           treatment == "control_live" ~ "non-conditioned",
+                           treatment == "aphid" ~ "aphid-conditioned",
+                           treatment == "caterpillar" ~ "caterpillar-conditioned",
+                           treatment == "MeJA" ~ "MeJA-conditioned",
+                           treatment == "SA" ~ "SA-conditioned",
+                           treatment == "control_plant" & Experiment == "phytohormones" ~ "mock-conditioned",
+                           treatment == "control_plant" & Experiment == "real_insects" ~ "uninfested-conditioned")) 
+
+#making new columns factors
+str(glucosinolates)
+glucosinolates[c(16:19)] <- lapply(glucosinolates[c(16:19)], factor)
+summary(glucosinolates)
+
+#deleting non-necessary columns 
+glucosinolates <- glucosinolates[ -c(4:6) ]
+
+#making new column 'glucosinolates' & removing those with NA's (not-dried samples for instance)
+glucosinolates <- glucosinolates %>% 
+                  mutate(Glucosinolates = "1")%>% 
+                  tidyr::drop_na() 
+
+#change names of columns by adding Glu_ because as they start with a number it creates problems  
+glucosinolates <- glucosinolates %>%
+                  rename_with(.cols = 4:12, function(x){paste0("Glu_", x)}) 
+
+glucosinolates <- glucosinolates %>%
+                  rename(Glu_3MSOP = Glu_3MSOP...4)
+
+glucosinolates[c(17)] <- lapply(glucosinolates[c(17)], factor)
+
+#save 
+saveRDS(glucosinolates, file = "./data/R_data/glucosinolates.rds")
+write.csv(glucosinolates,"./data/csv/glucosinolates.csv", row.names = FALSE)
+
+```
+
+# Aphids
+
+```{r aphids}
+
+aphids.h <-read_excel("./data/raw_data/raw_aphids.xlsx", sheet = "Hormones")
+str(aphids.h)
+
+#removing extra columns
+aphids.h <- aphids.h[ -c(9) ]
+
+#separate 1st column 
+aphids.h <- aphids.h %>% 
+                 separate(Treatment, c('soil_original', 'herbivory_original'), sep = '[-]')
+
+#making factors 
+aphids.h[c(1:5)] <- lapply(aphids.h[c(1:5)], factor)
+
+#assigning soil_inocula and herbivory with plant ID from feedback  
+df <- phytohormones  
+colnames(df)
+
+#deleting non-necessary columns 
+df <- df[ -c(1:2,4:12, 17) ]
+str(df)
+
+#join
+aphids.hormones <- merge(x=aphids.h,y=df,by="ID",all.x=TRUE)
+aphids.hormones <- aphids.hormones[-c(41:42), ]
+
+#filling plant #140 that was missing for phytohormones
+aphids.h <- aphids.hormones %>%  
+                   mutate(Phase = 
+                         case_when(
+                           ID == "140" ~ "feedback",
+                           TRUE ~ as.character (Phase))) %>%
+                   mutate(Experiment = 
+                            case_when(
+                              ID == "140" ~ "phytohormones",
+                              TRUE ~ as.character (Experiment)))%>%
+                   mutate(herbivory = 
+                            case_when(
+                              ID == "140" ~ "aphid-infested",
+                              TRUE ~ as.character (herbivory)))%>%
+                  mutate(soil_inocula = 
+                            case_when(
+                              ID == "140" ~ "mock-conditioned",
+                              TRUE ~ as.character (soil_inocula)))
+                               
+#changing column names for aphids 
+str(aphids.h)
+colnames(aphids.h)
+aphids.hormones <- aphids.h %>%  
+                   rename(dpi_8 = precount) %>%
+                   rename(dpi_14 = total)%>%
+                   relocate(ID, Phase, Experiment, soil_inocula, herbivory, dpi_8, dpi_14)
+str(aphids.hormones)
+aphids.hormones <- aphids.hormones[ -c(10:13) ]
+
+#Insect-Experiment 
+aphids.i <-read_excel("./data/raw_data/raw_aphids.xlsx", sheet = "Insects")
+str(aphids.i)
+
+#making factors 
+aphids.i[c(1:3)] <- lapply(aphids.i[c(1:3)], factor)
+
+#join
+aphids.insects <- merge(x=aphids.i,y=df,by="ID",all.x=TRUE)
+
+#changing column names for aphids 
+colnames(aphids.i)
+aphids.insects <- aphids.insects %>%
+                   rename(dpi_8 ='1st count') %>%
+                   rename(dpi_14 = Total)%>%
+                   relocate(ID, Phase, Experiment, soil_inocula, herbivory, dpi_8, dpi_14)
+str(aphids.insects)
+aphids.insects <- aphids.insects[ -c(8:9) ]
+
+#getting block and place missing
+blocks <-read_excel("./data/raw_data/raw_aphids.xlsx", sheet = "Insects_Block")
+str(blocks)
+
+#making factors 
+blocks[c(1:5)] <- lapply(blocks[c(1:5)], factor)
+
+#removing trt 
+blocks <- blocks[-c(3:4)]
+
+#join
+aphids.insects <- merge(x=aphids.insects,y=blocks,by="ID",all.x=TRUE)
+
+
+#Merge both df's 
+aphids <- rbind(x=aphids.hormones,y=aphids.insects)
+
+#save 
+saveRDS(aphids, file = "./data/R_data/aphids.rds")
+write.csv(aphids,"./data/csv/aphids.csv", row.names = FALSE)
+
+```
+
+
+# Caterpillars 
+
+```{r caterpillars}
+
+phytohormones <- readRDS("./data/R_data/phytohormones.rds")
+
+#hormones
+cat.h <-read_excel("./data/raw_data/raw_caterpillars.xlsx", sheet = "Hormones")
+str(cat.h)
+
+#removing extra columns
+cat.h <- cat.h[ -c(10) ]
+
+#separate 1st column 
+cat.h <- cat.h %>% 
+                 separate(Treatment, c('soil_original', 'herbivory_original'), sep = '[-]')
+
+#making factors 
+cat.h[c(1:5)] <- lapply(cat.h[c(1:5)], factor)
+
+#assigning soil_inocula and herbivory with plant ID from feedback  
+df <- phytohormones  
+colnames(df)
+
+#deleting non-necessary columns 
+df <- df[ -c(1:2,4:12, 17) ]
+str(df)
+
+#join
+cat.hormones <- merge(x=cat.h,y=df,by="ID",all.x=TRUE)
+str(cat.hormones)
+
+#removing plants without caterpillar measurement
+cat.hormones <- subset(cat.hormones, ID != "146" & ID!= "182" & ID != "208" & ID != "215") %>% 
+                droplevels()
+
+cat.hormones[c(6:10)] <- lapply(cat.hormones[c(6:10)], as.numeric)
+
+#insects
+cat.i <-read_excel("./data/raw_data/raw_caterpillars.xlsx", sheet = "Insects")
+str(cat.i)
+
+#making factors 
+cat.i[c(1:7)] <- lapply(cat.i[c(1:7)], factor)
+
+#renaming
+cat.i <- cat.i %>% 
+         rename(soil_original = Soil) %>% 
+         rename(herbivory_original = Herbivory)
+
+#join
+cat.insects <- merge(x=cat.i,y=df,by="ID",all.x=TRUE)
+str(cat.insects)
+cat.insects <- cat.insects[-c(3:4)]
+
+#Merge both df's 
+caterpillars <- rbind(x=cat.hormones,y=cat.insects)
+str(caterpillars)
+
+#save 
+saveRDS(caterpillars, file = "./data/R_data/caterpillars.rds")
+write.csv(caterpillars,"./data/csv/caterpillars.csv", row.names = FALSE)
+
+```
+
+# Metabolites-SIMCA
+
+```{r Metabolites-SIMCA}
+
+phytohormones <- readRDS(file = "./data/R_data/phytohormones.rds")
+str(phytohormones)
+
+glucosinolates <- readRDS(file = "./data/R_data/glucosinolates.rds")
+str(glucosinolates)
+
+p <- phytohormones[,c(3,5:16)] %>% 
+     mutate(phyto="1")
+
+g <- glucosinolates[,c(3,5:16)] %>%
+     mutate(gluco="1")
+
+
+#joining
+metabolites <- left_join(p,g, by="ID")
+colnames(metabolites)
+str(metabolites)
+
+
+
+metabolites <- metabolites %>% 
+               mutate(Experiment= Experiment.x)%>% 
+               mutate(Phase = Phase.x)%>% 
+               mutate(Herbivory = herbivory.x)%>% 
+               mutate(soil_inocula = soil_inocula.x)
+
+str(metabolites)
+colnames(metabolites)
+
+
+
+#removing repeated columns
+met <- subset(metabolites, select = -c(Phase.x,Experiment.x, herbivory.x, soil_inocula.x, Phase.y, Experiment.y, herbivory.y, soil_inocula.y) )
+
+
+
+#making new columns 
+
+met <- met %>% 
+       mutate(both = 
+                case_when((phyto == 1 & gluco == 1) ~ 1))%>%
+       mutate(pathway_induced = 
+                case_when(soil_inocula == "aphid-conditioned" ~ "SA",
+                           soil_inocula == "caterpillar-conditioned" ~ "JA",
+                           soil_inocula == "MeJA-conditioned" ~ "JA",
+                           soil_inocula == "mock-conditioned" ~ "Control_Plant",
+                           soil_inocula == "non-conditioned" ~ "Control_No-Plant",
+                           soil_inocula == "SA-conditioned" ~ "SA",
+                           soil_inocula == "uninfested-conditioned" ~ "Control_Plant",
+                          (soil_inocula == "No-inocula" & Herbivory == "aphid-infested") ~ "SA",
+                          (soil_inocula == "No-inocula" & Herbivory == "caterpillar-infested") ~ "JA",
+                          (soil_inocula == "No-inocula" & Herbivory == "MeJA-treated") ~ "JA",
+                          (soil_inocula == "No-inocula" & Herbivory == "mock-treated") ~ "Control_Plant",
+                          (soil_inocula == "No-inocula" & Herbivory == "not-infested") ~ "Control_Plant",
+                          (soil_inocula == "No-inocula" & Herbivory == "SA-treated") ~ "SA")) 
+str(met)
+met <- met %>% 
+       relocate(c(Experiment, Phase, Herbivory, soil_inocula, pathway_induced, both, phyto, gluco), .after = ID)      
+
+summary(met)
+met[c(6:9)] <- lapply(met[c(6:9)], factor)
+
+met.cond <- subset(met, Phase == "conditioning")
+met.feed.both <- subset(met, Phase == "feedback" & both == "1")
+met.feed.phyto <- subset(met, Phase == "feedback")
+met.feed.glu <- subset(met, Phase == "feedback" & gluco == "1")
+
+#Add extra column
+met.feed.phyto <- met.feed.phyto %>% 
+                  mutate(combination=
+                           case_when())
+
+levels(met.feed.phyto$Herbivory)
+levels(met.feed.phyto$soil_inocula)
+
+
+
+#####
+p.f <- subset(p, Phase=="feedback") %>% droplevels()
+g.f <- subset(g, Phase=="feedback") %>% droplevels()
+
+metabolites.f <- left_join(p.f,g.f, by="ID")
+colnames(metabolites.f)
+str(metabolites.f)
+
+metabolites.f <- metabolites.f %>% 
+               mutate(Experiment= Experiment.x)%>% 
+               mutate(Phase = Phase.x)%>% 
+               mutate(Herbivory = herbivory.x)%>% 
+               mutate(soil_inocula = soil_inocula.x)
+
+str(metabolites.f)
+colnames(metabolites.f)
+
+met.f <- subset(metabolites.f, select = -c(Phase.x,Experiment.x, herbivory.x, soil_inocula.x, Phase.y, Experiment.y, herbivory.y, soil_inocula.y) )
+
+
+met.f <- met.f %>% 
+       mutate(both = 
+                case_when((phyto == 1 & gluco == 1) ~ 1))%>%
+       mutate(pathway_induced = 
+                case_when(soil_inocula == "aphid-conditioned" ~ "SA",
+                           soil_inocula == "caterpillar-conditioned" ~ "JA",
+                           soil_inocula == "MeJA-conditioned" ~ "JA",
+                           soil_inocula == "mock-conditioned" ~ "Control_Plant",
+                           soil_inocula == "non-conditioned" ~ "Control_No-Plant",
+                           soil_inocula == "SA-conditioned" ~ "SA",
+                           soil_inocula == "uninfested-conditioned" ~ "Control_Plant"))
+                          
+
+met.f <- met.f %>% 
+       relocate(c(Experiment, Phase, Herbivory, soil_inocula, pathway_induced, both, phyto, gluco), .after = ID)      
+str(met.f)
+
+summary(met)
+met.f[c(7:9)] <- lapply(met.f[c(7:9)], factor)
+
+#Add extra column
+met.f <- met.feed.phyto %>% 
+                  mutate(combination=
+                           case_when(
+                             (soil_inocula == "aphid-conditioned" & Herbivory == "not-infested")~ "Ac-Ni",
+                             (soil_inocula == "aphid-conditioned" & Herbivory == "caterpillar-infested")~ "Ac-Ci",
+                             (soil_inocula == "aphid-conditioned" & Herbivory == "aphid-infested")~ "Ac-Ai",
+                             (soil_inocula == "caterpillar-conditioned" & Herbivory == "not-infested")~ "Cc-Ni",
+                             (soil_inocula == "caterpillar-conditioned" & Herbivory == "caterpillar-infested")~ "Cc-Ci",
+                             (soil_inocula == "caterpillar-conditioned" & Herbivory == "aphid-infested")~ "Cc-Ai",
+                             (soil_inocula == "MeJA-conditioned" & Herbivory == "not-infested")~ "Mec-Ni",
+                             (soil_inocula == "MeJA-conditioned" & Herbivory == "caterpillar-infested")~ "Mec-Ci",
+                             (soil_inocula == "MeJA-conditioned" & Herbivory == "aphid-infested")~ "Mec-Ai",
+                             (soil_inocula == "mock-conditioned" & Herbivory == "not-infested")~ "CMc-Ni",
+                             (soil_inocula == "mock-conditioned" & Herbivory == "caterpillar-infested")~ "CMc-Ci",
+                             (soil_inocula == "mock-conditioned" & Herbivory == "aphid-infested")~ "CMc-Ai",
+                             (soil_inocula == "non-conditioned" & Herbivory == "not-infested")~ "Noc-Ni",
+                             (soil_inocula == "non-conditioned" & Herbivory == "caterpillar-infested")~ "Noc-Ci",
+                             (soil_inocula == "non-conditioned" & Herbivory == "aphid-infested")~ "Noc-Ai",
+                             (soil_inocula == "SA-conditioned" & Herbivory == "not-infested")~ "SAc-Ni",
+                             (soil_inocula == "SA-conditioned" & Herbivory == "caterpillar-infested")~ "SAc-Ci",
+                             (soil_inocula == "SA-conditioned" & Herbivory == "aphid-infested")~ "SAc-Ai",
+                             (soil_inocula == "uninfested-conditioned" & Herbivory == "not-infested")~ "CUc-Ni",
+                             (soil_inocula == "uninfested-conditioned" & Herbivory == "caterpillar-infested")~ "CUc-Ci",
+                             (soil_inocula == "uninfested-conditioned" & Herbivory == "aphid-infested")~ "CUc-Ai"))%>% 
+            relocate(combination, .after=soil_inocula)
+
+
+met.feed.both <- subset(met.f, Phase == "feedback" & both == "1")
+met.feed.both.h <- subset(met.f, Experiment == "phytohormones")
+met.feed.both.i <- subset(met.f, Experiment == "real_insects")
+met.feed.phyto <- subset(met, Phase == "feedback")
+met.feed.glu <- subset(met, Phase == "feedback" & gluco == "1")
+
+
+#save 
+saveRDS(met, file = "./data/R_data/metabolites.rds")
+write.csv(met,"./data/csv/metabolites.csv", row.names = FALSE)
+
+#save it to SIMCA folder
+write.csv(met.cond,"./PLS_metabolite_analysis/data/conditioning_metabolites.csv", row.names = FALSE)
+write.csv(met.feed.both,"./PLS_metabolite_analysis/data/feedback_metabolites.csv", row.names = FALSE)
+write.csv(met.feed.both.h,"./PLS_metabolite_analysis/data/feedback_HormoneExp_metabolites.csv", row.names = FALSE)
+write.csv(met.feed.both.i,"./PLS_metabolite_analysis/data/feedback_InsectsExp_metabolites.csv", row.names = FALSE)
+write.csv(met.feed.phyto,"./PLS_metabolite_analysis/data/feedback_phytohormones.csv", row.names = FALSE)
+write.csv(met.feed.glu,"./PLS_metabolite_analysis/data/feedback_glucosinolates.csv", row.names = FALSE)
+str(met.feed.both)
+
+```
+
+
+
+
+
+
