@@ -1,5 +1,5 @@
 ---
-title: "Data_handling"
+title: "plant_data_handling"
 author: "Marcela Aragon"
 date: "3/1/2024"
 output: 
@@ -16,16 +16,18 @@ editor_options:
   chunk_output_type: console
 ---
 
-I feel there's a problem with the data: It was clear for me when plotting phytohormones and seeing that JA-Ile is much higher in plants infested with aphids than in plants infested with caterpillars, which doesn't make any sense. 
-
-Before I saw that if I used the 'filter' option in excel and then copy-paste the values, there is a mistake. A long time ago when I did this `feedback` and `conditioning` df's, I did it with copy-paste. Now I would like to try to do it in R so it's less prone to mistakes. 
+This script will deal with arranging and cleaning the raw plant data so it's ready to use in R 
 
 
-## Rmarkdown settings 
+# General settings 
+
+## Rmarkdown
 
 ```{r global settings, include=FALSE}
 
 #Set working directory to project directory 
+setwd("./")
+getwd() #ok
 
 #Set global options for r chunks
 knitr::opts_chunk$set(
@@ -61,8 +63,8 @@ library(readxl)
 theme_set(theme_bw())
 
 # Set colors for soil_inocula
-color_soil_inocula <- c("gray", "whitesmoke", "yellow2", "steelblue")
-color_herbivory <- c("whitesmoke", "yellow2", "steelblue")
+color_pathway_induced <- c("999999", "E69F00", "#4472C4") #control, JA and SA
+color_experiment <- c("#CC3399", "#70AD47") #simulated and real herbivory
 
 # Set axis looks
 axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 10,
@@ -73,9 +75,42 @@ axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 10,
 
 ```
 
-# Biomass
+# Conditioning
 
 ```{r biomass}
+
+conditioning_simu <-read_excel("./plant_data/raw_data/CleanData_PSF.xlsx", sheet = "cond_phytohormones") 
+conditioning_real <-read_excel("./plant_data/raw_data/CleanData_PSF.xlsx", sheet = "cond_real_insects") 
+
+colnames(conditioning_simu) #missing 3
+colnames(conditioning_real)
+
+setdiff(colnames(conditioning_real), colnames(conditioning_simu)) #what needs to change in the simulated df
+
+conditioning_simu2 <- conditioning_simu %>% 
+                      rename(ID_experiment=ID) %>% 
+                      mutate(caterpillars_recovered=NA) %>%
+                      mutate(leaf_area_cm2=NA) %>%
+                      mutate(Rainbow=NA)
+#check
+setdiff(colnames(conditioning_real), colnames(conditioning_simu2)) #ok
+
+#merge
+conditioning <- rbind(conditioning_simu2, conditioning_real)
+summary(conditioning)
+
+#make factors
+conditioning2 <- as.data.frame(unclass(conditioning),stringsAsFactors=TRUE)
+conditioning2[c(3:5, 14:15)] <- lapply(conditioning2[c(3:5, 14:15)], factor)
+str(conditioning2) #check
+
+conditioning <- conditioning2
+
+#save 
+write.csv(conditioning,"./plant_data/csv/conditioning.csv", row.names = FALSE)
+
+#clean
+rm(conditioning_real, conditioning_simu, conditioning_simu2, conditioning2)
 
 ```
 
