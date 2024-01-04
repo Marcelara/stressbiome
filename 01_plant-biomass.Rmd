@@ -16,21 +16,13 @@ editor_options:
   chunk_output_type: console
 ---
 
-This script will deal with ploting and analyzing the following plant traits in both conditioning and feedback phases;
-
-* plant biomass
-* phytohormones
-* glucosinolates
+This script will deal with ploting and analyzing the plant biomass in both conditioning and feedback phases;
 
 # General settings 
 
 ## Rmarkdown
 
 ```{r global settings, include=FALSE}
-
-#Set working directory to project directory 
-setwd("./")
-getwd() #ok
 
 #Set global options for r chunks
 knitr::opts_chunk$set(
@@ -49,9 +41,23 @@ knitr::opts_chunk$set(
 
 ```{r loading packages, echo=TRUE}
 
+#Set working directory to project directory 
+setwd("./")
+getwd() #ok
+
+#data
 library(knitr)
 library(dplyr)
+library(tibble)
+
+#plotting
 library(ggplot2)
+library(ggpubr)
+library(GGally)
+library(RColorBrewer)
+library(grDevices)
+
+#stats
 library(DHARMa)
 library(lmtest)
 library(fitdistrplus)
@@ -61,7 +67,6 @@ library(multcompView)
 library(multcomp)
 library(postHoc)
 library(car)
-library(ggpubr)
 library(effsize) #Cohen's D
 library(lsr)
 
@@ -74,20 +79,142 @@ library(lsr)
 # Setting up white background for plots
 theme_set(theme_bw())
 
-# Set colors for soil_inocula
-color_pathway_induced <- c("999999", "E69F00", "#4472C4") #control, JA and SA
-color_experiment <- c("#CC3399", "#70AD47") #simulated and real herbivory
+# Set colors
+color_JA <- rgb(0.9019607843137255, 0.6235294117647059, 0) #yellow-orange
+color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
+color_control <- rgb(0.6,0.6,0.6) #gray
+color_simulated <- rgb(0.8,0.2,0.6) #pink
+color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
 
-# Set axis looks
-axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 10,
-                                               face = "bold", angle=45, hjust=1))+
-  theme(axis.text.y = element_text(colour = "black", size = 12, face = "bold"))+
-  theme(axis.title=element_text(size=15, face = "bold"))+
-  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))
+color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
+color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
+
+# Set default axis looks
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
+                                               face = "bold", angle=0, hjust=0.5))+ #text in X
+  theme(axis.text.y = element_text(colour = "black", size = 9, face = "bold"))+ #text in y
+  theme(axis.title=element_text(size=11, face = "bold"))+ #all texts
+  theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)))+
+  theme(panel.grid.major = element_blank(), #no grid
+        panel.grid.minor = element_blank()) #no grid
+  #theme(legend.position="none")+ #no legend
+
+#Get names for boxes in facet wrap
+Experiment_names <- c(
+                    `simulated` = "Simulated Herbivory",
+                    `real_insects` = "Insect Herbivory")
+
 
 ```
 
+## Conditioning 
 
+The conditioning phase for the simulated-herbivory experiment took place as part of the Family Experiment at Wageninen in between May and June from 2021. 
+
+Briefly, in the Family experiment plants were dipped with either MeJA 0.5mM, SA 0.5mM or a Mock solution using the Berendsen et al., 2018 dipping protocol, after this plants were harvested. Shoots were dried in the oven to obtain dry shoot biomass and roots were collected for microbiome analysis. 
+
+Some of the replicates for shoot biomass are missing as ~3-4 replicates per treatment were freeze-dried for Glucosinolate and Phytohormone-analysis. 
+
+### Exploring data 
+
+```{r c_phyto exploring data}
+
+#load data
+biomass <- readRDS("./plant_data/biomass.rds")
+
+#explore 
+summary(biomass)
+colnames(biomass)
+
+#quick summary
+biomass %>% 
+group_by(Phase, Experiment, plant_pathway_induced) %>%
+  summarise(
+    count = n(),
+    mean = mean(shoot_biomass_mg, na.rm = TRUE),
+    sd = sd(shoot_biomass_mg, na.rm = TRUE))
+
+#plotting quickly
+p <- ggpairs(biomass[c("Experiment","Phase","plant_pathway_induced", "shoot_biomass_mg")], 
+            mapping = aes(color = Experiment))
+
+#adding colors
+p + scale_color_manual(values=color_experiment)+
+           scale_fill_manual(values=color_experiment)
+
+#subsetting df to only conditioning
+conditioning <- biomass %>% 
+                filter(Phase == "conditioning")
+
+p <- ggpairs(conditioning[c("Experiment","plant_pathway_induced", "shoot_biomass_mg")], 
+            mapping = aes(color = Experiment))
+
+#adding colors
+p + scale_color_manual(values=color_experiment)+
+           scale_fill_manual(values=color_experiment)
+
+#change levels of Experiment
+levels(conditioning$Experiment)
+conditioning <- conditioning %>%
+                mutate(Experiment = factor(Experiment, levels = c("simulated", "real_insects" )))
+
+#clean
+rm(p)
+dev.off()
+
+```
+
+* Plants in the simulated herbivory experiment were overall bigger than those in the real insects one. 
+* In both cases JA-induced plants were smaller than controls.
+
+### Plots
+
+Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped by Experiment + colored in the upper boxes. 
+
+```{r}
+
+# make a boxplot
+p1 <- ggplot(data = conditioning,
+            mapping = aes(x = plant_pathway_induced, y = shoot_biomass_mg), colour= plant_pathway_induced)+
+  geom_boxplot(mapping = aes(fill= plant_pathway_induced), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = conditioning,
+              mapping = (aes(plant_pathway_induced, shoot_biomass_mg, fill = plant_pathway_induced)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)
+
+
+p2 <- p1 + facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) +
+              labs(y="Shoot biomass (mg)", x=" ") +
+              ylim(400,2500)+
+              axis_looks +
+              theme(axis.text.x = element_blank(),
+                    axis.ticks.x = element_blank())+
+              theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
+                    strip.background=element_rect(colour="black"))+ #outline of boxes
+              theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
+              theme(legend.position="none") #no legend, to save it better
+
+#save plot
+ggsave(
+  filename = "cond_plant-biomass.svg",
+  plot = last_plot(),
+  path = "./Plots/01_plant-biomass",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+#clean
+rm(p1,p2)
+dev.off()
+
+
+```
+
+It's not straightforward to change the facet boxes by the color of the experiment. I will do this in illustrator instead. 
 
 
 
