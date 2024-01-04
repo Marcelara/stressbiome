@@ -1,0 +1,96 @@
+---
+title: "Plant_traits"
+author: "Marcela Aragon"
+date: "3/1/2024"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: 
+     collapsed: false
+     smooth_scroll: true
+    df_print: paged
+    code_folding: hide
+    keep_md: true
+editor_options: 
+  chunk_output_type: console
+---
+
+This script will deal with ploting and analyzing the following plant traits in both conditioning and feedback phases;
+
+* plant biomass
+* phytohormones
+* glucosinolates
+
+# General settings 
+
+## Rmarkdown
+
+```{r global settings, include=FALSE}
+
+#Set working directory to project directory 
+setwd("./")
+getwd() #ok
+
+#Set global options for r chunks
+knitr::opts_chunk$set(
+  echo = TRUE,#show code
+  fig.width = 9,
+  fig.height = 6,
+  dpi = 300,
+  error=TRUE, #keep knitting even if error appears
+  message=FALSE, #don't show messages
+  warning=FALSE, #don't show warnings
+  collapse=FALSE)
+
+```
+
+## Loading packages
+
+```{r loading packages, echo=TRUE}
+
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(DHARMa)
+library(lmtest)
+library(fitdistrplus)
+library(AICcmodavg)
+library(emmeans)
+library(multcompView)
+library(multcomp)
+library(postHoc)
+library(car)
+library(ggpubr)
+library(effsize) #Cohen's D
+library(lsr)
+
+```
+
+## Global settings for plots 
+
+```{r settings for plots}
+
+# Setting up white background for plots
+theme_set(theme_bw())
+
+# Set colors for soil_inocula
+color_pathway_induced <- c("999999", "E69F00", "#4472C4") #control, JA and SA
+color_experiment <- c("#CC3399", "#70AD47") #simulated and real herbivory
+
+# Set axis looks
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 10,
+                                               face = "bold", angle=45, hjust=1))+
+  theme(axis.text.y = element_text(colour = "black", size = 12, face = "bold"))+
+  theme(axis.title=element_text(size=15, face = "bold"))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))
+
+```
+
+
+
+
+
+
+
+
