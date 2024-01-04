@@ -126,8 +126,9 @@ conditioning <-biomass2
 #clean
 rm(simu, simu2, simu3, real, real2, real3, biomass2, biomass_simu, biomass_simu2, biomass_real)
 
-#feedback
-#simulated
+##feedback
+
+##simulated
 simu <-read_excel("./plant_data/raw_data/raw_biomass.xlsx", sheet = "feedback_phytohormones") 
 
 colnames(simu) #"ID", "Block", "Shoots" 
@@ -136,10 +137,10 @@ simu2 <- simu %>%
          select(-c("Plot", "Place", "Treatment", "Column1", "Aphid sample leaf", 
                    "SA", "JA", "ABA", "Column2", "leaf discs (gr)"))
 simu3 <- simu2 %>% 
-         rename(weight_shoot_wo_leaf_discs = "Sh. Biomass( without leaf discs)",
-                weight_eppendorf = "Eppendorf weight", 
-                weight_leaf_discs_mg = "Leaf discs (mg)",
-                weight_total_biomass_gr = "total biomass(gr)")
+         rename(shoot_wo_leaf_discs_gr = "Sh. Biomass( without leaf discs)",
+                eppendorf_mg = "Eppendorf weight", 
+                leaf_discs_mg = "Leaf discs (mg)",
+                total_biomass_gr = "total biomass(gr)")
 
 simu4 <- simu3 %>% 
          mutate(herbivory=Herbivory) %>% 
@@ -155,47 +156,110 @@ simu4 <- simu3 %>%
                    mutate(across(Experiment, as.factor))
 
 simu5 <- simu4 %>% 
-          select(-c("Soil", "Herbivory", "weight_eppendorf"))%>% 
+          select(-c("Soil", "Herbivory", "eppendorf_mg"))%>% 
           relocate(ID, Block, Experiment, soil_inocula, herbivory)
 
-simu6 <- simu5 %>%
-         
-         
+#check
+str(simu5)
+simu5[c(1:2)] <- lapply(simu5[c(1:2)], as.factor)
+simu5[c(6:8)] <- lapply(simu5[c(6:8)], as.numeric)
 
-#change names
-simu3 <- simu2 %>% 
-         rename(shoot_biomass=Shoots)%>%
-         rename(ID=Harvest_ID)%>%
-         mutate(Leaf_area=NA)%>%
-         mutate(Experiment="simulated")
+#change gr to mg and make new column with total weight
+simu6 <- simu5 %>%
+         mutate(shoot_wo_leaf_discs_mg = shoot_wo_leaf_discs_gr*1000)%>%
+         mutate(shoot_biomass_mg =
+                  case_when(
+                    shoot_wo_leaf_discs_mg == is.na(.) ~ NA,
+                    TRUE ~ shoot_wo_leaf_discs_mg+leaf_discs_mg))%>% #if NA in shoot biomass it keeps NA, otherwise wrong
+         mutate(Phase="feedback")%>%
+         mutate(across(Phase, as.factor))%>%
+         relocate(Phase, .after=ID)
+         
+## real insects
+real <-read_excel("./plant_data/raw_data/raw_biomass.xlsx", sheet = "feedback_real_herbivory") 
+
+colnames(real) #"ID", "Block", "Shoots" 
+
+real2 <- real %>% 
+         select(-c("Plot", "Place", "Treatment", "Column1", "leaf disc(gr)"))
 
 real3 <- real2 %>% 
-         rename(Stress=Treatment)%>%
-         rename(shoot_biomass='Shoot_biomass(g)')%>%
-         mutate(Experiment="real")
-               
+         rename(shoot_wo_leaf_discs_gr = "Sh. biomass (without leaf discs)",
+                eppendorf_mg = "eppendorf weight (mg)", 
+                leaf_discs_mg = "leaf discs (mg)",
+                total_biomass_gr = "total biomass (gr)")
+
+real3[c(1:4)] <- lapply(real3[c(1:4)], as.factor)
+levels(real3$Soil)
+
+real4 <- real3 %>% 
+         mutate(herbivory=Herbivory) %>% 
+         mutate(soil_inocula = 
+                case_when(
+                         Soil == "Control 1 (POC)" ~ "control-conditioned",
+                         Soil == "Control 2 (Live)" ~ "non-conditioned",
+                         Soil == "Chewer conditioned" ~ "JA-conditioned",  
+                         Soil == "Aphid Conditioned" ~ "SA-conditioned")) %>%
+        mutate(Experiment="real_insects")%>%
+                   mutate(across(soil_inocula, as.factor))%>%
+                   mutate(across(herbivory, as.factor))%>%
+                   mutate(across(Experiment, as.factor))
+
+real5 <- real4 %>% 
+          select(-c("Soil", "Herbivory", "eppendorf_mg"))%>% 
+          relocate(ID, Block, Experiment, soil_inocula, herbivory)
+
+#change gr to mg and make new column with total weight
+real6 <- real5 %>%
+         mutate(shoot_wo_leaf_discs_mg = shoot_wo_leaf_discs_gr*1000)%>%
+         mutate(shoot_biomass_mg =
+                  case_when(
+                    shoot_wo_leaf_discs_mg == is.na(.) ~ NA,
+                    TRUE ~ shoot_wo_leaf_discs_mg+leaf_discs_mg))%>% #if NA in shoot biomass it keeps NA, otherwise wrong
+         mutate(Phase="feedback")%>%
+         mutate(across(Phase, as.factor))%>%
+         relocate(Phase, .after=ID)
+
 #merge
-biomass <- rbind(simu3, real3)
+feedback <- rbind(simu6, real6)
+
+#final step of merging conditioning with feedback into a single df
+conditioning <- biomass %>% 
+            mutate(shoot_biomass_mg = shoot_biomass*1000)%>% 
+            mutate(Phase="conditioning") %>% 
+            mutate(across(Phase, as.factor))%>% 
+            mutate(across(c(ID, plant_pathway_induced), as.factor))%>% 
+            relocate(ID, Experiment, Phase, plant_pathway_induced)
+
+#final df!
+biomass <- full_join(conditioning, feedback)
+
+biomass <- biomass %>% 
+           select(-c("leaf_discs_mg", "shoot_wo_leaf_discs_gr",
+                     "shoot_wo_leaf_discs_mg", "shoot_biomass", "total_biomass_gr"))%>% 
+           relocate(ID, Block, Phase, Experiment, plant_pathway_induced, Stress, soil_inocula, herbivory)
+
+#just check levels if they are ok
 summary(biomass)
 
-#make factors
-biomass <- as.data.frame(unclass(biomass),stringsAsFactors=TRUE)
-str(biomass) #check
-
-#let's make a new column with plant_pathway_induced
+#rename Experiment
+levels(biomass)[levels(biomass)=="real"] <- "real_insects"
+library(plyr)
 biomass2 <- biomass %>% 
-            mutate(plant_pathway_induced=case_when(
-                              Stress == "Aphid" ~ "SA",
-                              Stress == "Chewer" ~ "JA",
-                              Stress == "Control" ~ "Control",
-                              Stress == "MeJA" ~ "JA",
-                              Stress == "SA" ~ "SA"))
+            mutate(Experiment = recode(Experiment, real="real_insects"))
+
+summary(biomass2) #ok
+str(biomass2)
+
 biomass <- biomass2
 
-
-
 #save 
+saveRDS(biomass, file = "./plant_data/biomass.rds")
 write.csv(biomass,"./plant_data/csv/biomass.csv", row.names = FALSE)
+
+#clean
+rm(real, real2, real3, real4, real5, real6, simu, simu2, simu3, simu4, simu5, simu6,
+   biomass2, conditioning, feedback)
 
 ```
 
