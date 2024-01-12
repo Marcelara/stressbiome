@@ -71,6 +71,13 @@ library(car)
 library(effsize) #Cohen's D
 library(lsr)
 
+library(ropls) #PSLDA
+library(PERMANOVA)
+library(plsdepot)
+library(santaR)
+library(vegan)
+
+
 ```
 
 ## Global settings for plots 
@@ -107,6 +114,340 @@ Experiment_names <- c(
                     `real_insects` = "Insect Herbivory")
 
 ```
+
+## Conditioning 
+
+The conditioning phase for the simulated-herbivory experiment took place as part of the Family Experiment at Wageninen in between May and June from 2021. And the insect-herbivory experiment took place between *X and X from 2021.*
+
+From the 16-17 total replicates in the conditioning phase, 4 plants per treatment were randomly allocated to be used for metabolite analysis. For this, shoot biomass was cut from the root and flash-froze in liquid nitrogen. Samples were freeze-dried for 72 hours (*equipment*) and grinded to fine powder at the UNIFARM facilities in Wageningen (big extruder in grinding room). Per sample, 15-30 mg (*I need to check this*) were weighed individually and placed in a special tray (*get the name*) to be quantified by LC-MS/MS in Jenna by Michael Reichelt.
+
+Text by Michael Reichelt: 
+
+"Phytohormone analysis was performed as in Vadassery et.al. (2012) on an Agilent 1200 series HPLC system (Agilent Technologies) with the modification that a tandem mass spectrometer QTRAP 6500 (SCIEX, Darmstadt, Germany) was used. Since it was observed that  both  the  D6-labeled  JA  and  D6-labeled  JA-Ile  standards (HPC Standards GmbH, Cunnersdorf, Germany) contained 40% of the corresponding D5-labeled compounds, the sum of the peak areas of D5- and D6-compound was used for quantification. Concentration of cis-OPDA, and OH-JA were determined relative to the quantity of the internal standard D6-JA applying a response factor (RF) of 1.0. OH-JA-Ile and COOH-JA-Ile were quantified relative to  D6-JA-Ile: RF 1.0. Sulfo-JA was determined relative to the quantity of the internal standard D6-JA: RF 6.0.
+
+Data processing was performed using Analyst 1.5 software and analyte quantity was determined relative to the corresponding internal standard peak area."  
+
+### Exploring data 
+
+
+```{r}
+
+#load data
+phyto <- readRDS("./plant_data/phytohormones.rds")
+
+#explore 
+summary(phyto)
+colnames(phyto)
+
+#change levels of Experiment
+levels(phyto$Experiment)
+phyto <- phyto %>%
+                mutate(Experiment = factor(Experiment,
+                                           levels = c("simulated", "real_insects" )))%>%
+                mutate(plant_pathway_induced = factor(plant_pathway_induced,
+                                                      levels=c("Control", "JA", "SA")))
+
+#subsetting df to only conditioning
+conditioning <- phyto %>% 
+                filter(Phase == "conditioning")
+
+#make long format for plotting
+long <- phyto %>% 
+              tidyr::pivot_longer(cols = c(11:18), 
+              names_to = "phytohormone",
+              values_to = "concentration",
+              values_drop_na = TRUE)
+
+#making new phytohormone column as factor
+long$phytohormone <- as.factor(long$phytohormone)
+
+# Reordering downstream the JA pathway
+ordered_hormones <- c("ABA", "SA", "cis_OPDA", "JA", "OH_JA", "sum_JA_Ile", "OH_JA_Ile", "COOH_JA_Ile")
+
+long$phytohormone <-factor(long$phytohormone, 
+                             levels = ordered_hormones)
+
+#subsetting df to only conditioning
+conditioning_long <- long %>% 
+                filter(Phase == "conditioning")
+
+
+#plotting quickly
+p <- ggpairs(phyto[c("Experiment","Phase","plant_pathway_induced", "JA", "SA")], 
+            mapping = aes(color = Experiment))
+
+#adding colors
+p + scale_color_manual(values=color_experiment)+
+           scale_fill_manual(values=color_experiment)
+
+#only conditioning
+p <- ggpairs(conditioning[c("Experiment","plant_pathway_induced", "phytohormone", "concentration")], 
+            mapping = aes(color = Experiment))
+
+#adding colors
+p + scale_color_manual(values=color_experiment)+
+           scale_fill_manual(values=color_experiment)
+
+#clean
+rm(p)
+dev.off()
+
+```
+
+Now I have 3 df, phyto, long and conditioning 
+
+
+* Values look similar between experiments in the conditioning phase
+* There are slightly less replicates for SA
+
+### Plots
+
+#### Barplots
+
+Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped by Experiment + colored in the upper boxes. For this, first I need to make a summary table df. 
+
+```{r}
+#summary stats 
+df_phyto <- conditioning_long %>%
+  group_by(Experiment, phytohormone, plant_pathway_induced) %>%
+  summarise(
+    n = n(),
+    mean = mean(concentration, na.rm = TRUE),
+    sd = sd(concentration, na.rm = TRUE)) %>%
+    mutate(se = sd/sqrt(n))
+
+df_phyto
+
+```
+
+Now, let's plot it. I'd like to have a plot with those hormones with high concentrations and then a second plot with a smaller axis for those of low concentrations so differences can be better appreciated.
+
+```{r}
+
+big_axis <- c("ABA", "SA", "cis_OPDA", "JA", "OH_JA")
+small_axis <- c("sum_JA_Ile", "OH_JA_Ile","COOH_JA_Ile")
+
+
+# make a barplot for big-axis
+p1 <- ggplot(data = subset(df_phyto, phytohormone %in% big_axis),
+            mapping = aes(x = phytohormone, y = mean), colour= plant_pathway_induced)+
+  geom_bar(aes(fill = plant_pathway_induced), stat = "identity",
+           position = position_dodge(0.8), width = 0.8, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = plant_pathway_induced),
+                width = 0.2, position = position_dodge(0.8))+
+  scale_fill_manual(values = color_pathway_induced)+
+  geom_point(data = subset(conditioning_long, phytohormone %in% big_axis),
+              mapping = (aes(phytohormone, concentration, fill = plant_pathway_induced)),
+               shape = 21, size = 1.5, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))
+
+p2 <- p1 + facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) +
+              labs(y="(ng/g DW)", x=" ") +
+              axis_looks +
+              theme(panel.spacing = unit(0.2, "lines"))+
+              theme(legend.position = "none")+
+              scale_x_discrete(labels=c("ABA" = "ABA", "SA" = "SA",
+                                      "cis_OPDA" = "cis-OPDA", "JA" = "JA", "OH_JA" = "OH-JA"))
+#save plot
+ggsave(
+  filename = "cond_phyto_big.svg",
+  plot = p2,
+  path = "./Plots/02_phytohormones",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+# make a barplot for small-axis
+p1 <- ggplot(data = subset(df_phyto, phytohormone %in% small_axis),
+            mapping = aes(x = phytohormone, y = mean), colour= plant_pathway_induced)+
+  geom_bar(aes(fill = plant_pathway_induced), stat = "identity",
+           position = position_dodge(0.8), width = 0.8, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = plant_pathway_induced),
+                width = 0.2, position = position_dodge(0.8))+
+  scale_fill_manual(values = color_pathway_induced)+
+  geom_point(data = subset(conditioning_long, phytohormone %in% small_axis),
+              mapping = (aes(phytohormone, concentration, fill = plant_pathway_induced)),
+               shape = 21, size = 1.5, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))
+
+p2 <- p1 + facet_wrap(~Experiment) +
+            theme(strip.background = element_blank(),
+                  strip.text.x = element_blank())+ #no label on top
+              labs(y="(ng/g DW)", x=" ") +
+              axis_looks +
+              theme(panel.spacing = unit(0.2, "lines"))+
+              theme(legend.position = "none")+
+              scale_x_discrete(labels=c("sum_JA_Ile" = "JA-Ile", "OH_JA_Ile" = "OH-JA-Ile",
+                                      "COOH_JA_Ile" = "COOH-JA-Ile"))
+
+#save plot
+ggsave(
+  filename = "cond_phyto_small.svg",
+  plot = p2,
+  path = "./Plots/02_phytohormones",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+#clean
+rm(p1,p2)
+dev.off()
+
+```
+
+These two plots will be fused in one in illustrator
+
+
+#### PLSDA
+
+Stands for Partial Least Squares Discriminant Analysis; a type of multivariate dimensionality reduction analysis. It can be thought as a "supervised" version of a PCA 
+
+
+```{r}
+
+#The following code was written by Els van de Zande, thank you Els!
+
+View(conditioning)
+
+str(conditioning)
+matrixdata<-conditioning[,11:18]# keep only values
+matrixdata <- as.matrix(matrixdata[,])# make it numeric
+metadata<-conditioning[,c("Experiment", "plant_pathway_induced")]
+metadata <- metadata %>% #change from characters to numbers
+              mutate(Experiment = case_when(Experiment == 'simulated' ~ '1',
+                                            TRUE ~ '2')) %>%
+              mutate(plant_pathway_induced = case_when(plant_pathway_induced == 'Control' ~ '1',
+                                                       plant_pathway_induced == 'JA' ~ '2',
+                                                       TRUE ~ '3'))
+MetaData <-data.matrix(metadata) #makes a numeric matrix
+
+#PLS-DA
+plsda <-opls(matrixdata,MetaData)
+plsda_center <-opls(matrixdata,MetaData, scaleC = "center")
+plsda_pareto <-opls(matrixdata,MetaData, scaleC = "pareto")#removes the relative importance of large values
+                                                          #but keeps the data structure intact.
+#get scores to plot them
+scores<-plsda_pareto@scoreMN
+scores_df<-as.data.frame(scores) #make new df 
+
+scores_df$p1 <- as.numeric(scores_df$p1)
+scores_df$p2 <- as.numeric(scores_df$p2)
+
+scores_df2 <- scores_df %>% #add info
+              mutate(Experiment = as.numeric(metadata$Experiment))%>%
+              mutate(plant_pathway_induced = as.numeric(metadata$plant_pathway_induced))
+              
+
+#Plot the scores using ggplot2
+scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2, fill = factor(plant_pathway_induced),
+                                  shape = factor(Experiment))) +
+  geom_point(aes(colour=factor(plant_pathway_induced), fill=factor(plant_pathway_induced)),
+              size = 4, alpha=0.8)+
+  labs(x = "axis 1", y = "axis 2",
+       color="Plant pathway induced", shape="Experiment", fill=element_blank()) +
+  scale_fill_manual(values =color_pathway_induced) +  #Customize color scheme for Treatment
+  scale_color_manual(values =color_pathway_induced)
+  scale_shape_manual(values = c(16,17)) +  #Customize shape for Herbivore
+  axis_looks
+
+#now add loadings
+loadings<-plsda_pareto@loadingMN
+loadings_df<-as.data.frame(loadings)
+
+loadings_df$p1 <- as.numeric(loadings_df$p1)
+loadings_df$p2 <- as.numeric(loadings_df$p2)
+
+#makes plot with arrows marking direction
+hormone_names <- c("SA","JA","ABA","JA-Ile","cis-OPDA","OH-JA","OH-JA-Ile","COOH-JA-Ile")
+
+Biplot <-scoreplot+
+         geom_hline(yintercept=0, linetype='dotted', col = 'gray20',linewidth = 0.2 )+
+         geom_vline(xintercept=0, linetype='dotted', col = 'gray20', linewidth = 0.2)+
+         geom_segment(data = loadings_df, aes(x = 0, y = 0, xend = (p1*50), yend = (p2*50)),
+                      arrow = arrow(length = unit(0.5, "picas"), type="closed"),
+                      colour = "black", linewidth = 0.5, inherit.aes = FALSE)+
+         geom_text(aes(x = (p1*50), y = (p2*50), label = hormone_names,
+                angle = 0.45, hjust = -.1, vjust = .2),
+                 data = loadings_df,
+                 colour = "black", size=4, inherit.aes = FALSE)+
+         axis_looks
+         #theme(legend.position = "none")
+
+#save plot
+ggsave(
+  filename = "cond_phyto_PLSDA.svg",
+  plot = Biplot,
+  path = "./Plots/02_phytohormones",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+#extract VIP (Variable's importance) scores and CV-value
+VIPmatrixdataPLSDA<-getVipVn(plsda_pareto, orthoL = FALSE)
+write.csv(VIPmatrixdataPLSDA)
+
+#PERMANOVA
+UVmatrixdata<- santaR:::scaling_UV(matrixdata) #for auto-scaling using st. deviation
+DistanceMatrix<-dist(UVmatrixdata, method="euclidean")
+
+#make it a df again
+MetaData <-as.data.frame(MetaData) 
+MetaData[,c(1:2)]<- lapply(MetaData[,c(1:2)], as.factor)
+
+#run PERMANOVA
+permanova <- adonis2(DistanceMatrix~Experiment*plant_pathway_induced,
+                      data=MetaData, permutations = 999, method="bray")
+
+
+
+
+
+
+```
+
+
+
+
+
+
+### Stats
+
+For now, let's analyze each phytohormone independently to see whether concentration changes according to the plant_pathway_induced. Thus, one GLM per hormone per experiment. Try to gather a final table with values from the model for everything. 
+
+```{r}
+
+#make 2 df, one per Experiment
+simulated <- subset(conditioning, Experiment == "simulated") %>% droplevels()
+real <- subset(conditioning, Experiment == "real_insects") %>% droplevels()
+
+#make a list
+list <- list(simulated = simulated, real=real)
+
+#use lapply for each hormone
+ABA <- lapply(list, function(df){
+              glm(log(concentration) ~ plant_pathway_induced,
+               family = Gamma (link = "log"),
+               data = subset(df, phytohormone == "ABA"))})
+
+#check
+simulateResiduals(ABA$simulated, plot = T)
+simulateResiduals(ABA$real, plot = T)
+
+#get df 
+summary(ABA$simulated)
+summary(ABA$real)
+
+```
+
+
 
 
 
