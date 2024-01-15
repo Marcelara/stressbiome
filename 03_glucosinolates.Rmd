@@ -123,9 +123,11 @@ From the 16-17 total replicates in the conditioning phase, 4 plants per treatmen
 
 Text by Michael Reichelt: 
 
-"Phytohormone analysis was performed as in Vadassery et.al. (2012) on an Agilent 1200 series HPLC system (Agilent Technologies) with the modification that a tandem mass spectrometer QTRAP 6500 (SCIEX, Darmstadt, Germany) was used. Since it was observed that  both  the  D6-labeled  JA  and  D6-labeled  JA-Ile  standards (HPC Standards GmbH, Cunnersdorf, Germany) contained 40% of the corresponding D5-labeled compounds, the sum of the peak areas of D5- and D6-compound was used for quantification. Concentration of cis-OPDA, and OH-JA were determined relative to the quantity of the internal standard D6-JA applying a response factor (RF) of 1.0. OH-JA-Ile and COOH-JA-Ile were quantified relative to  D6-JA-Ile: RF 1.0. Sulfo-JA was determined relative to the quantity of the internal standard D6-JA: RF 6.0.
+"Glucosinolate analysis by HPLC-UV
 
-Data processing was performed using Analyst 1.5 software and analyte quantity was determined relative to the corresponding internal standard peak area."  
+Glucosinolates were analysed by HPLC-UV as described in Burow et.al. (2006). 6-25 mg of lyophilized root material were extracted with 1mL methanol solution (v:V) containing 50nmol of 4-hydroxybenzyl glucosinolate. A 500uL aliquot of the raw extract was loaded onto DEAE Sephadex A 25 columns and treated with arylsulfatase for desulfation (Sigma-Aldrich) (Brown et al. 2003). The eluted desulfoglucosinolates were separated using high performance liquid chromatography (Agilent 1100 HPLC system, Agilent Technologies) on a reversed phase C-18 column (Nucleodur Sphinx RP, 250 x 4.6 mm, 5µm, Machrey-Nagel, Düren, Germany) with a water (A)-acetonitrile (B) gradient (0-1 min, 1.5% B; 1-6 min, 1.5-5% B; 6-8 min, 5-7% B; 8-18 min, 7-21% B; 18-23 min, 21-29% B; 23-23.1 min, 29-100% B; 23.1-24min 100% B and 24.1-28 min 1.5% B; flow 1.0 mL min-1). Detection was performed with a photodiode array detector and peaks were integrated at 229 nm. Desulfated  glucosinolates were  identified  by  comparison  of  retention  time  and  UV spectra  to  those  of  purified  standards  previously  extracted from Arabidopsis thaliana (Brown et al. 2003) or by analysis of the desulfoglucosinolate extracts on an LC-ESI-Ion-Trap-mass spectrometer (Esquire6000, Bruker Daltonics). We used the following molar response factors for quantification of individual Gls relative to  the  internal  standard,  4-hydroxybenzyl glucosinolate: aliphatic Gls 2.0, indole Gls 0.5 (Burow et al. 2006). The following glucosinolates were detected in the samples: 3-methylsulfinylpropyl glucosinolate (3MSOP), 4-methylsulfinylbutyl glucosinolate (4MSOB), 2-propenyl glucosinolate (allyl), 4-hydroxy-indol-3-ylmethyl glucosinolate (4OHI3M), indol-3-ylmethyl glucosinolate (I3M), 4-methoxy-indol-3-ylmethyl glucosinolate (4MOI3M), and 1-methoxy-indol-3-ylmethyl glucosinolate (1MOI3M)."
+
+
 
 ### Exploring data 
 
@@ -133,66 +135,71 @@ Data processing was performed using Analyst 1.5 software and analyte quantity wa
 ```{r}
 
 #load data
-phyto <- readRDS("./plant_data/phytohormones.rds")
+gluco <- readRDS("./plant_data/glucosinolates.rds")
 
 #explore 
-summary(phyto)
-colnames(phyto)
+summary(gluco)
+colnames(gluco)
 
 #change levels of Experiment
-levels(phyto$Experiment)
-phyto <- phyto %>%
+levels(gluco$Experiment)
+gluco <- gluco %>%
                 mutate(Experiment = factor(Experiment,
                                            levels = c("simulated", "real_insects" )))%>%
                 mutate(plant_pathway_induced = factor(plant_pathway_induced,
                                                       levels=c("Control", "JA", "SA")))
-
-#subsetting df to only conditioning
-conditioning <- phyto %>% 
-                filter(Phase == "conditioning")
+#remove sample
+gluco <-gluco %>%
+        subset(ID != "159")%>% #dry sample, no info
+        droplevels()
 
 #make long format for plotting
-long <- phyto %>% 
+long <- gluco %>% 
               tidyr::pivot_longer(cols = c(11:18), 
-              names_to = "phytohormone",
+              names_to = "glucosinolate",
               values_to = "concentration",
               values_drop_na = TRUE)
 
 #making new phytohormone column as factor
-long$phytohormone <- as.factor(long$phytohormone)
+long$glucosinolate <- as.factor(long$glucosinolate)
 
-# Reordering downstream the JA pathway
-ordered_hormones <- c("ABA", "SA", "cis_OPDA", "JA", "OH_JA", "sum_JA_Ile", "OH_JA_Ile", "COOH_JA_Ile")
+# Reordering by indolic and aliphatic
+ordered_glucosinolates <- c("Glu_total", "Glu_I3M", "Glu_4OHI3M", "Glu_1MOI3M", "Glu_4MOI3M", "Glu_3MSOP", "Glu_4MSOB", "Glu_Allyl")
 
-long$phytohormone <-factor(long$phytohormone, 
-                             levels = ordered_hormones)
+long$glucosinolate <-factor(long$glucosinolate, 
+                             levels = ordered_glucosinolates)
 
 #subsetting df to only conditioning
 conditioning_long <- long %>% 
-                filter(Phase == "conditioning")
+                filter(Phase == "conditioning")%>%
+                filter(glucosinolate != "Glu_4OHI3M") #mostly 0's
+
+conditioning_gluco <- gluco %>%
+                      dplyr::filter(Phase == "conditioning")%>%
+                      dplyr::select(-ends_with('4OHI3M')) #mostly 0's
 
 ```
 
-* Now I have 3 df, phyto, long and conditioning 
+* Now I have 3 df, gluco, conditioning_long and conditioning_gluco 
 
 Plotting quickly
 ```{r}
 
 #plotting quickly
-#p <- ggpairs(phyto[c("Experiment","Phase","plant_pathway_induced", "JA", "SA")], 
-#            mapping = aes(color = Experiment))
+p <- ggpairs(gluco[c("Experiment","Phase","plant_pathway_induced", "Glu_total")], 
+            mapping = aes(color = Experiment))
 
 #adding colors
-#p + scale_color_manual(values=color_experiment)+
-#           scale_fill_manual(values=color_experiment)
+p + scale_color_manual(values=color_experiment)+
+           scale_fill_manual(values=color_experiment)
 
 #only conditioning
-#p <- ggpairs(conditioning[c("Experiment","plant_pathway_induced", "phytohormone", "concentration")], 
-#            mapping = aes(color = Experiment))
+p <- ggpairs(conditioning_long[c("Experiment","plant_pathway_induced", "glucosinolate", "concentration")], 
+            mapping = aes(color = Experiment))
 
 #adding colors
-#p + scale_color_manual(values=color_experiment)+
-#           scale_fill_manual(values=color_experiment)
+p + scale_color_manual(values=color_experiment)+
+           scale_fill_manual(values=color_experiment)
 
 #clean
 #rm(p)
@@ -213,10 +220,12 @@ https://omicsforum.ca/t/what-is-the-meaning-of-components-in-pls-da/732/3
 
 #The following code was written by Els van de Zande, thank you Els!
 
-View(conditioning)
+View(conditioning_gluco)
+
+conditioning <- conditioning_gluco
 
 str(conditioning)
-matrixdata<-conditioning[,11:18]# keep only values
+matrixdata<-conditioning[,11:17]# keep only values
 matrixdata <- as.matrix(matrixdata[,])# make it numeric
 metadata<-conditioning[,c("Experiment", "plant_pathway_induced")]
 metadata_number <- metadata %>% #change from characters to numbers
@@ -228,9 +237,9 @@ metadata_number <- metadata %>% #change from characters to numbers
 MetaData <-data.matrix(metadata_number) #makes a numeric matrix
 
 #PLS-DA
-plsda <-opls(matrixdata,MetaData)
-plsda_center <-opls(matrixdata,MetaData, scaleC = "center")
-plsda_pareto <-opls(matrixdata,MetaData, scaleC = "pareto")#removes the relative importance of large values
+plsda <-opls(matrixdata, MetaData, predI=2)
+plsda_center <-opls(matrixdata,MetaData, scaleC = "center", predI=2)
+plsda_pareto <-opls(matrixdata,MetaData, scaleC = "pareto", predI=2)#removes the relative importance of large values
                                                           #but keeps the data structure intact.
 #check
 plot(plsda_pareto)
@@ -244,8 +253,8 @@ plot(plsda_pareto,
 plant_pathway_Factor <- MetaData[,"plant_pathway_induced"]
 experiment_Factor <- MetaData[,"Experiment"]
 
-plsda_pareto2 <-opls(matrixdata,plant_pathway_Factor, scaleC = "pareto", permI=1000) #plant pathway induced
-plsda_pareto3 <-opls(matrixdata,experiment_Factor, scaleC = "pareto", permI=1000) #Experiment 
+plsda_pareto2 <-opls(matrixdata,plant_pathway_Factor, scaleC = "pareto", permI=1000, predI=2) #plant pathway induced
+plsda_pareto3 <-opls(matrixdata,experiment_Factor, scaleC = "pareto", permI=1000, predI=2) #Experiment 
 
 #get scores to plot them
 scores<-plsda_pareto@scoreMN
@@ -258,13 +267,12 @@ scores_df2 <- scores_df %>% #add info
               mutate(Experiment = as.numeric(metadata$Experiment))%>%
               mutate(plant_pathway_induced = as.numeric(metadata$plant_pathway_induced))
               
-
 #Plot the scores using ggplot2
 scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2, fill = factor(plant_pathway_induced),
                                   shape = factor(Experiment))) +
   geom_point(aes(colour=factor(plant_pathway_induced), fill=factor(plant_pathway_induced)),
               size = 4, alpha=0.8)+
-  labs(x = "t1(66%)", y = "t2(19%)",
+  labs(x = "t1(90%)", y = "t2(5%)",
        color="Plant pathway induced", shape="Experiment", fill=element_blank()) +
   scale_fill_manual(values =color_pathway_induced) +  #Customize color scheme for Treatment
   scale_color_manual(values =color_pathway_induced)
@@ -279,15 +287,16 @@ loadings_df$p1 <- as.numeric(loadings_df$p1)
 loadings_df$p2 <- as.numeric(loadings_df$p2)
 
 #makes plot with arrows marking direction
-hormone_names <- c("SA","JA","ABA","JA-Ile","cis-OPDA","OH-JA","OH-JA-Ile","COOH-JA-Ile")
+rownames(loadings)
+glucosinolate_names <- c("Total","3MSOP","4MSOB","Sinigrin","I3M","4MOI3M","1MOI3M")
 
 Biplot <-scoreplot+
          geom_hline(yintercept=0, linetype='dotted', col = 'gray20',linewidth = 0.2 )+
          geom_vline(xintercept=0, linetype='dotted', col = 'gray20', linewidth = 0.2)+
-         geom_segment(data = loadings_df, aes(x = 0, y = 0, xend = (p1*50), yend = (p2*50)),
+         geom_segment(data = loadings_df, aes(x = 0, y = 0, xend = (p1*8), yend = (p2*8)),
                       arrow = arrow(length = unit(0.5, "picas"), type="closed"),
                       colour = "black", linewidth = 0.5, inherit.aes = FALSE)+
-         geom_text(aes(x = (p1*50), y = (p2*50), label = hormone_names,
+         geom_text(aes(x = (p1*8), y = (p2*8), label = glucosinolate_names,
                 angle = 0.45, hjust = -.1, vjust = .2),
                  data = loadings_df,
                  colour = "black", size=4, inherit.aes = FALSE)+
@@ -298,9 +307,9 @@ Biplot <-scoreplot+
 
 #save plot
 ggsave(
-  filename = "cond_phyto_PLSDA.svg",
+  filename = "cond_glucosinolates_PLSDA.svg",
   plot = Biplot,
-  path = "./Plots/02_phytohormones",
+  path = "./Plots/03_glucosinolates",
   scale = 1.5,
   width = 1200,
   height = 700,
@@ -317,15 +326,14 @@ VIP <- as.data.frame(VIPmatrixdataPLSDA)
 VIP <- VIP %>%
         arrange(VIP)%>%
         rename(VIP = VIPmatrixdataPLSDA)%>%
-        mutate(phytohormone=rownames(.))%>%
-        mutate(phytohormone)
+        mutate(glucosinolate=rownames(.))
 
-VIP$phytohormone <- as.factor(VIP$phytohormone)
+VIP$glucosinolate <- as.factor(VIP$glucosinolate)
 
 #plot it to have it next to the plot
 p_VIP <- VIP %>%
-         mutate(phytohormone=factor(phytohormone, levels=phytohormone)) %>%
-         ggplot(aes(x = phytohormone, y = VIP)) +
+         mutate(glucosinolate=factor(glucosinolate, levels=glucosinolate)) %>%
+         ggplot(aes(x = glucosinolate, y = VIP)) +
          geom_point(size = 4) +
          coord_flip()+
          axis_looks+
@@ -333,9 +341,9 @@ p_VIP <- VIP %>%
 
 #save plot
 ggsave(
-  filename = "cond_phyto_VIP-scores.svg",
+  filename = "cond_glucosinolates_VIP-scores.svg",
   plot = p_VIP,
-  path = "./Plots/02_phytohormones",
+  path = "./Plots/03_glucosinolates",
   scale = 1.5,
   width = 700,
   height = 700,
@@ -368,10 +376,10 @@ permanova <- adonis2(DistanceMatrix~Experiment*plant_pathway_induced,
 permanova_table <- cbind (.,as.data.frame(permanova))
 
 table <- nice_table(permanova_table,
-              title = c("Table X. PERMANOVA for Plant Phytohormones", "Conditioning phase"),
+              title = c("Table X. PERMANOVA for Plant Glucosinolates", "Conditioning phase"),
               note = "999 number of permutations")
 
-flextable::save_as_docx(table, path = "./Tables/02_phytohormones/permanova_phytohormones.docx")
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/permanova_glucosinolates.docx")
 
 #Run post-hoc tests
 
@@ -400,7 +408,6 @@ test.exp <- pairwise.perm.manova(DistanceMatrix, MetaData$Experiment,
 #Using this for now 
 library(metagMisc)
 
-
 #PPI
 pairwise_ppi <- adonis_pairwise(x = MetaData, dd = DistanceMatrix,
                                 group.var = "plant_pathway_induced", p.adj="fdr", permut=999)
@@ -408,13 +415,11 @@ pairwise_ppi <- adonis_pairwise(x = MetaData, dd = DistanceMatrix,
 pair_ppi_df <- as.data.frame(pairwise_ppi$Adonis.tab)
 rownames(pair_ppi_df) <- pair_ppi_df$Comparison
 
-
-
 #make table for Word -- Not working 
 Comparisons <- c("Control-JA", "Control-SA", "JA-SA") #names of factors
 pairwise_table <- cbind (Comparisons, as.data.frame(pair_ppi_df))
 
-table <- nice_table(pairwise_table,
+table <- nice_table(pair_ppi_df,
               title = c("Table X. PERMANOVA for Plant Phytohormones", "Conditioning phase"),
               note = "999 number of permutations")
 str(pair_ppi_df)
@@ -429,14 +434,7 @@ flextable::save_as_docx(table, path = "./Tables/02_phytohormones/posthoc_cond_pp
 pairwise_exp <- adonis_pairwise(x = MetaData, dd = DistanceMatrix,
                                 group.var = "Experiment", p.adj="fdr", permut=999)
 
-pair_exp_df <- as.data.frame(pairwise_exp$Adonis.tab)
-
-#save it
-table <- nice_table(pair_ppi_df,
-              title = c("Table X. Post-Hoc PERMANOVA for Plant Phytohormones", "Conditioning phase"))
-              
-flextable::save_as_docx(table, path = "./Tables/02_phytohormones/posthoc_cond_ppi.docx")
-
+pair_exp_df <- as.data.frame(pairwise_exp$Adonis.tab) #no difference 
 
 
 ```
@@ -448,15 +446,15 @@ Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped b
 
 ```{r}
 #summary stats 
-df_phyto <- conditioning_long %>%
-  group_by(Experiment, phytohormone, plant_pathway_induced) %>%
+df_gluco <- conditioning_long %>%
+  group_by(Experiment, glucosinolate, plant_pathway_induced) %>%
   summarise(
     n = n(),
     mean = mean(concentration, na.rm = TRUE),
     sd = sd(concentration, na.rm = TRUE)) %>%
     mutate(se = sd/sqrt(n))
 
-df_phyto
+df_gluco
 
 ```
 
@@ -464,20 +462,20 @@ Now, let's plot it. I'd like to have a plot with those hormones with high concen
 
 ```{r}
 
-big_axis <- c("ABA", "SA", "cis_OPDA", "JA", "OH_JA")
-small_axis <- c("sum_JA_Ile", "OH_JA_Ile","COOH_JA_Ile")
+big_axis <- c("Glu_total", "Glu_I3M", "Glu_1MOI3M", "Glu_3MSOP")
+small_axis <- c("Glu_Allyl", "Glu_4MOI3M", "Glu_4MSOB")
 
 
 # make a barplot for big-axis
-p1 <- ggplot(data = subset(df_phyto, phytohormone %in% big_axis),
-            mapping = aes(x = phytohormone, y = mean), colour= plant_pathway_induced)+
+p1 <- ggplot(data = subset(df_gluco, glucosinolate %in% big_axis),
+            mapping = aes(x = glucosinolate, y = mean), colour= plant_pathway_induced)+
   geom_bar(aes(fill = plant_pathway_induced), stat = "identity",
            position = position_dodge(0.8), width = 0.8, color = "black")+
   geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = plant_pathway_induced),
                 width = 0.2, position = position_dodge(0.8))+
   scale_fill_manual(values = color_pathway_induced)+
-  geom_point(data = subset(conditioning_long, phytohormone %in% big_axis),
-              mapping = (aes(phytohormone, concentration, fill = plant_pathway_induced)),
+  geom_point(data = subset(conditioning_long, glucosinolate %in% big_axis),
+              mapping = (aes(glucosinolate, concentration, fill = plant_pathway_induced)),
                shape = 21, size = 1.5, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))
 
@@ -486,13 +484,15 @@ p2 <- p1 + facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) +
               axis_looks +
               theme(panel.spacing = unit(0.2, "lines"))+
               theme(legend.position = "none")+
-              scale_x_discrete(labels=c("ABA" = "ABA", "SA" = "SA",
-                                      "cis_OPDA" = "cis-OPDA", "JA" = "JA", "OH_JA" = "OH-JA"))
+              scale_x_discrete(labels=c("Glu_total" = "Total", "Glu_I3M" = "I3M",
+                                       "Glu_1MOI3M" = "1MOI3M", "Glu_3MSOP"="3MSOP"))
+
+
 #save plot
 ggsave(
-  filename = "cond_phyto_big.svg",
+  filename = "cond_glucosinolates_big.svg",
   plot = p2,
-  path = "./Plots/02_phytohormones",
+  path = "./Plots/03_glucosinolates",
   scale = 1.5,
   width = 1200,
   height = 700,
@@ -501,15 +501,15 @@ ggsave(
 
 
 # make a barplot for small-axis
-p1 <- ggplot(data = subset(df_phyto, phytohormone %in% small_axis),
-            mapping = aes(x = phytohormone, y = mean), colour= plant_pathway_induced)+
+p1 <- ggplot(data = subset(df_gluco, glucosinolate %in% small_axis),
+            mapping = aes(x = glucosinolate, y = mean), colour= plant_pathway_induced)+
   geom_bar(aes(fill = plant_pathway_induced), stat = "identity",
            position = position_dodge(0.8), width = 0.8, color = "black")+
   geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = plant_pathway_induced),
                 width = 0.2, position = position_dodge(0.8))+
   scale_fill_manual(values = color_pathway_induced)+
-  geom_point(data = subset(conditioning_long, phytohormone %in% small_axis),
-              mapping = (aes(phytohormone, concentration, fill = plant_pathway_induced)),
+  geom_point(data = subset(conditioning_long, glucosinolate %in% small_axis),
+              mapping = (aes(glucosinolate, concentration, fill = plant_pathway_induced)),
                shape = 21, size = 1.5, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))
 
@@ -520,14 +520,14 @@ p2 <- p1 + facet_wrap(~Experiment) +
               axis_looks +
               theme(panel.spacing = unit(0.2, "lines"))+
               theme(legend.position = "none")+
-              scale_x_discrete(labels=c("sum_JA_Ile" = "JA-Ile", "OH_JA_Ile" = "OH-JA-Ile",
-                                      "COOH_JA_Ile" = "COOH-JA-Ile"))
+              scale_x_discrete(labels=c("Glu_4MOI3M" = "4MOI3M", "Glu_4MSOB" = "4MSOB",
+                                      "Glu_Allyl"="Sinigrin"))
 
 #save plot
 ggsave(
-  filename = "cond_phyto_small.svg",
+  filename = "cond_glucosinolate_small.svg",
   plot = p2,
-  path = "./Plots/02_phytohormones",
+  path = "./Plots/03_glucosinolates",
   scale = 1.5,
   width = 1200,
   height = 700,
