@@ -171,38 +171,278 @@ long$phytohormone <-factor(long$phytohormone,
 conditioning_long <- long %>% 
                 filter(Phase == "conditioning")
 
-
-#plotting quickly
-p <- ggpairs(phyto[c("Experiment","Phase","plant_pathway_induced", "JA", "SA")], 
-            mapping = aes(color = Experiment))
-
-#adding colors
-p + scale_color_manual(values=color_experiment)+
-           scale_fill_manual(values=color_experiment)
-
-#only conditioning
-p <- ggpairs(conditioning[c("Experiment","plant_pathway_induced", "phytohormone", "concentration")], 
-            mapping = aes(color = Experiment))
-
-#adding colors
-p + scale_color_manual(values=color_experiment)+
-           scale_fill_manual(values=color_experiment)
-
-#clean
-rm(p)
-dev.off()
-
 ```
 
-Now I have 3 df, phyto, long and conditioning 
+* Now I have 3 df, phyto, long and conditioning 
 
+Plotting quickly
+```{r}
+
+#plotting quickly
+#p <- ggpairs(phyto[c("Experiment","Phase","plant_pathway_induced", "JA", "SA")], 
+#            mapping = aes(color = Experiment))
+
+#adding colors
+#p + scale_color_manual(values=color_experiment)+
+#           scale_fill_manual(values=color_experiment)
+
+#only conditioning
+#p <- ggpairs(conditioning[c("Experiment","plant_pathway_induced", "phytohormone", "concentration")], 
+#            mapping = aes(color = Experiment))
+
+#adding colors
+#p + scale_color_manual(values=color_experiment)+
+#           scale_fill_manual(values=color_experiment)
+
+#clean
+#rm(p)
+#dev.off()
+
+```
 
 * Values look similar between experiments in the conditioning phase
 * There are slightly less replicates for SA
 
-### Plots
+### PLSDA
 
-#### Barplots
+Stands for Partial Least Squares Discriminant Analysis; a type of multivariate dimensionality reduction analysis. It can be thought as a "supervised" version of a PCA. The general approach is to analyze all phytohormones in a single analysis to check for patterns.  
+
+https://omicsforum.ca/t/what-is-the-meaning-of-components-in-pls-da/732/3
+
+```{r}
+
+#The following code was written by Els van de Zande, thank you Els!
+
+View(conditioning)
+
+str(conditioning)
+matrixdata<-conditioning[,11:18]# keep only values
+matrixdata <- as.matrix(matrixdata[,])# make it numeric
+metadata<-conditioning[,c("Experiment", "plant_pathway_induced")]
+metadata_number <- metadata %>% #change from characters to numbers
+                     mutate(Experiment = case_when(Experiment == 'simulated' ~ '1',
+                                            TRUE ~ '2')) %>%
+                     mutate(plant_pathway_induced = case_when(plant_pathway_induced == 'Control' ~ '1',
+                                                       plant_pathway_induced == 'JA' ~ '2',
+                                                       TRUE ~ '3'))
+MetaData <-data.matrix(metadata_number) #makes a numeric matrix
+
+#PLS-DA
+plsda <-opls(matrixdata,MetaData)
+plsda_center <-opls(matrixdata,MetaData, scaleC = "center")
+plsda_pareto <-opls(matrixdata,MetaData, scaleC = "pareto")#removes the relative importance of large values
+                                                          #but keeps the data structure intact.
+#check
+plot(plsda_pareto)
+plsda_pareto@scoreMN
+plot(plsda_pareto,
+     typeVc = "x-score",
+     parAsColFcVn = MetaData[,"plant_pathway_induced"],
+     parLabVc = as.character(MetaData[,"plant_pathway_induced"]))
+
+#split by factors
+plant_pathway_Factor <- MetaData[,"plant_pathway_induced"]
+experiment_Factor <- MetaData[,"Experiment"]
+
+plsda_pareto2 <-opls(matrixdata,plant_pathway_Factor, scaleC = "pareto", permI=1000) #plant pathway induced
+plsda_pareto3 <-opls(matrixdata,experiment_Factor, scaleC = "pareto", permI=1000) #Experiment 
+
+#get scores to plot them
+scores<-plsda_pareto@scoreMN
+scores_df<-as.data.frame(scores) #make new df 
+
+scores_df$p1 <- as.numeric(scores_df$p1)
+scores_df$p2 <- as.numeric(scores_df$p2)
+
+scores_df2 <- scores_df %>% #add info
+              mutate(Experiment = as.numeric(metadata$Experiment))%>%
+              mutate(plant_pathway_induced = as.numeric(metadata$plant_pathway_induced))
+              
+
+#Plot the scores using ggplot2
+scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2, fill = factor(plant_pathway_induced),
+                                  shape = factor(Experiment))) +
+  geom_point(aes(colour=factor(plant_pathway_induced), fill=factor(plant_pathway_induced)),
+              size = 4, alpha=0.8)+
+  labs(x = "t1(66%)", y = "t2(19%)",
+       color="Plant pathway induced", shape="Experiment", fill=element_blank()) +
+  scale_fill_manual(values =color_pathway_induced) +  #Customize color scheme for Treatment
+  scale_color_manual(values =color_pathway_induced)
+  scale_shape_manual(values = c(16,17)) +  #Customize shape for Herbivore
+  axis_looks
+
+#now add loadings
+loadings<-plsda_pareto@loadingMN
+loadings_df<-as.data.frame(loadings)
+
+loadings_df$p1 <- as.numeric(loadings_df$p1)
+loadings_df$p2 <- as.numeric(loadings_df$p2)
+
+#makes plot with arrows marking direction
+hormone_names <- c("SA","JA","ABA","JA-Ile","cis-OPDA","OH-JA","OH-JA-Ile","COOH-JA-Ile")
+
+Biplot <-scoreplot+
+         geom_hline(yintercept=0, linetype='dotted', col = 'gray20',linewidth = 0.2 )+
+         geom_vline(xintercept=0, linetype='dotted', col = 'gray20', linewidth = 0.2)+
+         geom_segment(data = loadings_df, aes(x = 0, y = 0, xend = (p1*50), yend = (p2*50)),
+                      arrow = arrow(length = unit(0.5, "picas"), type="closed"),
+                      colour = "black", linewidth = 0.5, inherit.aes = FALSE)+
+         geom_text(aes(x = (p1*50), y = (p2*50), label = hormone_names,
+                angle = 0.45, hjust = -.1, vjust = .2),
+                 data = loadings_df,
+                 colour = "black", size=4, inherit.aes = FALSE)+
+        #ylim(-60,60)+
+        #xlim(-100,100)+
+        axis_looks
+         #theme(legend.position = "none")
+
+#save plot
+ggsave(
+  filename = "cond_phyto_PLSDA.svg",
+  plot = Biplot,
+  path = "./Plots/02_phytohormones",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+#Let's also get the VIP scores 
+
+#extract VIP (Variable's importance) scores and CV-value
+VIPmatrixdataPLSDA<-getVipVn(plsda_pareto, orthoL = FALSE)
+
+VIP <- as.data.frame(VIPmatrixdataPLSDA)
+VIP <- VIP %>%
+        arrange(VIP)%>%
+        rename(VIP = VIPmatrixdataPLSDA)%>%
+        mutate(phytohormone=rownames(.))%>%
+        mutate(phytohormone)
+
+VIP$phytohormone <- as.factor(VIP$phytohormone)
+
+#plot it to have it next to the plot
+p_VIP <- VIP %>%
+         mutate(phytohormone=factor(phytohormone, levels=phytohormone)) %>%
+         ggplot(aes(x = phytohormone, y = VIP)) +
+         geom_point(size = 4) +
+         coord_flip()+
+         axis_looks+
+         labs(x = " ", y = "VIP score")
+
+#save plot
+ggsave(
+  filename = "cond_phyto_VIP-scores.svg",
+  plot = p_VIP,
+  path = "./Plots/02_phytohormones",
+  scale = 1.5,
+  width = 500,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+```
+
+Now, let's analyze the data with a PERMANOVA. First, data is auto-scaled to calculate a distance matrix from which a PERMANOVA is run to see whether there is an effect of plant pathway induced, the type of induction and the interaction of these two factors. 
+
+### PERMANOVA
+
+```{r}
+
+#PERMANOVA
+UVmatrixdata<- santaR:::scaling_UV(matrixdata) #for auto-scaling using st. deviation
+DistanceMatrix<-dist(UVmatrixdata, method="euclidean")
+
+#make it a df again
+MetaData <-as.data.frame(metadata) 
+MetaData[,c(1:2)]<- lapply(MetaData[,c(1:2)], as.factor)
+
+#run PERMANOVA
+permanova <- adonis2(DistanceMatrix~Experiment*plant_pathway_induced,
+                      data=MetaData, permutations = 999, method="bray")
+
+#make table for Word
+. <- c("Experiment (E)", "Plant pathway induced (PPI)", "E*PPI", "Residual", "Total") #names of factors
+permanova_table <- cbind (.,as.data.frame(permanova))
+
+table <- nice_table(permanova_table,
+              title = c("Table X. PERMANOVA for Plant Phytohormones", "Conditioning phase"),
+              note = "999 number of permutations")
+
+flextable::save_as_docx(table, path = "./Tables/02_phytohormones/permanova_phytohormones.docx")
+
+#Run post-hoc tests
+
+#Option 1
+groups <- MetaData[["plant_pathway_induced"]]
+mod <- betadisper(DistanceMatrix,groups)
+permutest(mod)
+plot(mod)
+boxplot(mod)
+mod.HSD <- TukeyHSD(mod)
+mod.HSD
+plot(mod.HSD)
+
+#Option2
+library(RVAideMemoire)
+
+test.ppi <- pairwise.perm.manova(DistanceMatrix, MetaData$plant_pathway_induced,
+                             test = c("Wilks"), nperm = 999, progress = TRUE,
+                             p.method = "fdr", F = TRUE, R2 = TRUE)
+
+test.exp <- pairwise.perm.manova(DistanceMatrix, MetaData$Experiment,
+                             test = c("Wilks"), nperm = 999, progress = TRUE,
+                             p.method = "fdr", F = T, R2 = T)
+
+#Option 3
+#Using this for now 
+library(metagMisc)
+
+
+#PPI
+pairwise_ppi <- adonis_pairwise(x = MetaData, dd = DistanceMatrix,
+                                group.var = "plant_pathway_induced", p.adj="fdr", permut=999)
+
+pair_ppi_df <- as.data.frame(pairwise_ppi$Adonis.tab)
+rownames(pair_ppi_df) <- pair_ppi_df$Comparison
+
+
+
+#make table for Word -- Not working 
+Comparisons <- c("Control-JA", "Control-SA", "JA-SA") #names of factors
+pairwise_table <- cbind (Comparisons, as.data.frame(pair_ppi_df))
+
+table <- nice_table(pairwise_table,
+              title = c("Table X. PERMANOVA for Plant Phytohormones", "Conditioning phase"),
+              note = "999 number of permutations")
+str(pair_ppi_df)
+
+#save it
+table <- nice_table(pair_ppi_df,
+              title = c("Table X. Post-Hoc PERMANOVA for Plant Phytohormones", "Conditioning phase"))
+              
+flextable::save_as_docx(table, path = "./Tables/02_phytohormones/posthoc_cond_ppi.docx")
+
+#Experiment
+pairwise_exp <- adonis_pairwise(x = MetaData, dd = DistanceMatrix,
+                                group.var = "Experiment", p.adj="fdr", permut=999)
+
+pair_exp_df <- as.data.frame(pairwise_exp$Adonis.tab)
+
+#save it
+table <- nice_table(pair_ppi_df,
+              title = c("Table X. Post-Hoc PERMANOVA for Plant Phytohormones", "Conditioning phase"))
+              
+flextable::save_as_docx(table, path = "./Tables/02_phytohormones/posthoc_cond_ppi.docx")
+
+
+
+```
+
+
+### Individual Barplots
 
 Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped by Experiment + colored in the upper boxes. For this, first I need to make a summary table df. 
 
@@ -301,153 +541,6 @@ dev.off()
 ```
 
 These two plots will be fused in one in illustrator
-
-
-#### PLSDA
-
-Stands for Partial Least Squares Discriminant Analysis; a type of multivariate dimensionality reduction analysis. It can be thought as a "supervised" version of a PCA 
-
-
-```{r}
-
-#The following code was written by Els van de Zande, thank you Els!
-
-View(conditioning)
-
-str(conditioning)
-matrixdata<-conditioning[,11:18]# keep only values
-matrixdata <- as.matrix(matrixdata[,])# make it numeric
-metadata<-conditioning[,c("Experiment", "plant_pathway_induced")]
-metadata <- metadata %>% #change from characters to numbers
-              mutate(Experiment = case_when(Experiment == 'simulated' ~ '1',
-                                            TRUE ~ '2')) %>%
-              mutate(plant_pathway_induced = case_when(plant_pathway_induced == 'Control' ~ '1',
-                                                       plant_pathway_induced == 'JA' ~ '2',
-                                                       TRUE ~ '3'))
-MetaData <-data.matrix(metadata) #makes a numeric matrix
-
-#PLS-DA
-plsda <-opls(matrixdata,MetaData)
-plsda_center <-opls(matrixdata,MetaData, scaleC = "center")
-plsda_pareto <-opls(matrixdata,MetaData, scaleC = "pareto")#removes the relative importance of large values
-                                                          #but keeps the data structure intact.
-#get scores to plot them
-scores<-plsda_pareto@scoreMN
-scores_df<-as.data.frame(scores) #make new df 
-
-scores_df$p1 <- as.numeric(scores_df$p1)
-scores_df$p2 <- as.numeric(scores_df$p2)
-
-scores_df2 <- scores_df %>% #add info
-              mutate(Experiment = as.numeric(metadata$Experiment))%>%
-              mutate(plant_pathway_induced = as.numeric(metadata$plant_pathway_induced))
-              
-
-#Plot the scores using ggplot2
-scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2, fill = factor(plant_pathway_induced),
-                                  shape = factor(Experiment))) +
-  geom_point(aes(colour=factor(plant_pathway_induced), fill=factor(plant_pathway_induced)),
-              size = 4, alpha=0.8)+
-  labs(x = "axis 1", y = "axis 2",
-       color="Plant pathway induced", shape="Experiment", fill=element_blank()) +
-  scale_fill_manual(values =color_pathway_induced) +  #Customize color scheme for Treatment
-  scale_color_manual(values =color_pathway_induced)
-  scale_shape_manual(values = c(16,17)) +  #Customize shape for Herbivore
-  axis_looks
-
-#now add loadings
-loadings<-plsda_pareto@loadingMN
-loadings_df<-as.data.frame(loadings)
-
-loadings_df$p1 <- as.numeric(loadings_df$p1)
-loadings_df$p2 <- as.numeric(loadings_df$p2)
-
-#makes plot with arrows marking direction
-hormone_names <- c("SA","JA","ABA","JA-Ile","cis-OPDA","OH-JA","OH-JA-Ile","COOH-JA-Ile")
-
-Biplot <-scoreplot+
-         geom_hline(yintercept=0, linetype='dotted', col = 'gray20',linewidth = 0.2 )+
-         geom_vline(xintercept=0, linetype='dotted', col = 'gray20', linewidth = 0.2)+
-         geom_segment(data = loadings_df, aes(x = 0, y = 0, xend = (p1*50), yend = (p2*50)),
-                      arrow = arrow(length = unit(0.5, "picas"), type="closed"),
-                      colour = "black", linewidth = 0.5, inherit.aes = FALSE)+
-         geom_text(aes(x = (p1*50), y = (p2*50), label = hormone_names,
-                angle = 0.45, hjust = -.1, vjust = .2),
-                 data = loadings_df,
-                 colour = "black", size=4, inherit.aes = FALSE)+
-         axis_looks
-         #theme(legend.position = "none")
-
-#save plot
-ggsave(
-  filename = "cond_phyto_PLSDA.svg",
-  plot = Biplot,
-  path = "./Plots/02_phytohormones",
-  scale = 1.5,
-  width = 1200,
-  height = 700,
-  units = "px",
-  dpi = 300)
-
-
-#extract VIP (Variable's importance) scores and CV-value
-VIPmatrixdataPLSDA<-getVipVn(plsda_pareto, orthoL = FALSE)
-write.csv(VIPmatrixdataPLSDA)
-
-#PERMANOVA
-UVmatrixdata<- santaR:::scaling_UV(matrixdata) #for auto-scaling using st. deviation
-DistanceMatrix<-dist(UVmatrixdata, method="euclidean")
-
-#make it a df again
-MetaData <-as.data.frame(MetaData) 
-MetaData[,c(1:2)]<- lapply(MetaData[,c(1:2)], as.factor)
-
-#run PERMANOVA
-permanova <- adonis2(DistanceMatrix~Experiment*plant_pathway_induced,
-                      data=MetaData, permutations = 999, method="bray")
-
-
-
-
-
-
-```
-
-
-
-
-
-
-### Stats
-
-For now, let's analyze each phytohormone independently to see whether concentration changes according to the plant_pathway_induced. Thus, one GLM per hormone per experiment. Try to gather a final table with values from the model for everything. 
-
-```{r}
-
-#make 2 df, one per Experiment
-simulated <- subset(conditioning, Experiment == "simulated") %>% droplevels()
-real <- subset(conditioning, Experiment == "real_insects") %>% droplevels()
-
-#make a list
-list <- list(simulated = simulated, real=real)
-
-#use lapply for each hormone
-ABA <- lapply(list, function(df){
-              glm(log(concentration) ~ plant_pathway_induced,
-               family = Gamma (link = "log"),
-               data = subset(df, phytohormone == "ABA"))})
-
-#check
-simulateResiduals(ABA$simulated, plot = T)
-simulateResiduals(ABA$real, plot = T)
-
-#get df 
-summary(ABA$simulated)
-summary(ABA$real)
-
-```
-
-
 
 
 

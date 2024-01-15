@@ -86,6 +86,7 @@ color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
 color_control <- rgb(0.6,0.6,0.6) #gray
 color_simulated <- rgb(0.8,0.2,0.6) #pink
 color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
+color_non-conditioned <-rgb(1,1,1,1)
 
 color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
 color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
@@ -327,28 +328,31 @@ rm(ph_table, aov_table, table, emmeans, posthoc, real, simu, aov_real, aov_simul
 
 ## Feedback 
 
+**[Explanation about experimental design]**
+
 In the feedback phase I'm interested in knowing the effect of both the type of soil inocula and the type of herbivory on the plant's biomass. Thus,the data will be analyzed with a two-way ANOVA using 'soil_inocula' and 'herbivory' as factors. One analysis will be made per xperiment.
 
 ### Exploring data 
 
+First, let's have a quick look to the data 
 ```{r}
-
 
 #subsetting df to only feedback
 feedback <- biomass %>% 
                 filter(Phase == "feedback")
 
-p <- ggpairs(feedback[c("Experiment","plant_pathway_induced", "shoot_biomass_mg")], 
-            mapping = aes(color = Experiment))
+#change levels of Experiment & Herbivory
+levels(feedback$Experiment)
+feedback <- feedback %>%
+                mutate(Experiment = factor(Experiment, levels = c("simulated", "real_insects" )))%>%
+                mutate(herbivory = factor(herbivory, levels = c("Without", "Chewer", "Aphid")))
+
+p <- ggpairs(feedback[c("Experiment","soil_inocula", "herbivory", "shoot_biomass_mg")], 
+            mapping = aes(color = Experiment)) #balanced
 
 #adding colors
 p + scale_color_manual(values=color_experiment)+
            scale_fill_manual(values=color_experiment)
-
-#change levels of Experiment
-levels(conditioning$Experiment)
-conditioning <- conditioning %>%
-                mutate(Experiment = factor(Experiment, levels = c("simulated", "real_insects" )))
 
 #clean
 rm(p)
@@ -356,8 +360,7 @@ dev.off()
 
 ```
 
-* Plants in the simulated herbivory experiment were overall bigger than those in the real insects one. 
-* In both cases JA-induced plants were smaller than controls.
+* Plants in the simulated herbivory experiment were overall bigger than those in the real insects one in the feedback phase too. 
 
 ### Plots
 
@@ -366,11 +369,11 @@ Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped b
 ```{r}
 
 # make a boxplot
-p1 <- ggplot(data = conditioning,
-            mapping = aes(x = plant_pathway_induced, y = shoot_biomass_mg), colour= plant_pathway_induced)+
-  geom_boxplot(mapping = aes(fill= plant_pathway_induced), position = position_dodge(width = 0.8), lwd=0.8)+
-  geom_jitter(data = conditioning,
-              mapping = (aes(plant_pathway_induced, shoot_biomass_mg, fill = plant_pathway_induced)),
+p1 <- ggplot(data = feedback,
+            mapping = aes(x = herbivory, y = shoot_biomass_mg), colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill=soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = feedback,
+              mapping = (aes(herbivory, shoot_biomass_mg, fill = soil_inocula)),
               shape = 21, size = 1.8, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
   scale_fill_manual(values = color_pathway_induced)

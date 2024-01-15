@@ -99,8 +99,8 @@
 <text x='106.46' y='231.70' text-anchor='middle' style='font-size: 9.00px; font-weight: bold; font-family: "Arial";' textLength='5.00px' lengthAdjust='spacingAndGlyphs'>0</text>
 <text x='170.66' y='231.70' text-anchor='middle' style='font-size: 9.00px; font-weight: bold; font-family: "Arial";' textLength='10.01px' lengthAdjust='spacingAndGlyphs'>40</text>
 <text x='234.86' y='231.70' text-anchor='middle' style='font-size: 9.00px; font-weight: bold; font-family: "Arial";' textLength='10.01px' lengthAdjust='spacingAndGlyphs'>80</text>
-<text x='168.73' y='244.20' text-anchor='middle' style='font-size: 11.00px; font-weight: bold; font-family: "Arial";' textLength='30.60px' lengthAdjust='spacingAndGlyphs'>axis 1</text>
-<text transform='translate(13.36,112.90) rotate(-90)' text-anchor='middle' style='font-size: 11.00px; font-weight: bold; font-family: "Arial";' textLength='30.60px' lengthAdjust='spacingAndGlyphs'>axis 2</text>
+<text x='168.73' y='244.20' text-anchor='middle' style='font-size: 11.00px; font-weight: bold; font-family: "Arial";' textLength='39.14px' lengthAdjust='spacingAndGlyphs'>t1(66%)</text>
+<text transform='translate(13.36,112.90) rotate(-90)' text-anchor='middle' style='font-size: 11.00px; font-weight: bold; font-family: "Arial";' textLength='39.14px' lengthAdjust='spacingAndGlyphs'>t2(19%)</text>
 <rect x='304.84' y='-3.19' width='121.68' height='78.47' style='stroke-width: 1.07; stroke: none; fill: #FFFFFF;' />
 <text x='310.32' y='11.33' style='font-size: 11.00px; font-family: "Arial";' textLength='110.72px' lengthAdjust='spacingAndGlyphs'>Plant pathway induced</text>
 <rect x='310.32' y='17.96' width='17.28' height='17.28' style='stroke-width: 1.07; stroke: none; fill: #FFFFFF;' />
