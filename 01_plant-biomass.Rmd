@@ -343,10 +343,22 @@ feedback <- biomass %>%
 
 #change levels of Experiment & Herbivory
 levels(feedback$Experiment)
+levels(feedback$herbivory)
+levels(feedback$soil_inocula)
+
 feedback <- feedback %>%
                 mutate(Experiment = factor(Experiment, levels = c("simulated", "real_insects" )))%>%
                 mutate(herbivory = factor(herbivory, levels = c("Without", "Chewer", "Aphid")))
 
+feedback <- feedback %>%
+                mutate(herbivory = factor(herbivory, labels = c("uninfested", "Mamestra", "Myzus")))%>%
+                filter(!is.na(shoot_biomass_mg))%>% #remove NAs
+                subset(soil_inocula != "non-conditioned")%>%
+                droplevels()
+
+str(feedback)
+
+#quick plot
 p <- ggpairs(feedback[c("Experiment","soil_inocula", "herbivory", "shoot_biomass_mg")], 
             mapping = aes(color = Experiment)) #balanced
 
@@ -360,7 +372,6 @@ dev.off()
 
 ```
 
-* Plants in the simulated herbivory experiment were overall bigger than those in the real insects one in the feedback phase too. 
 
 ### Plots
 
@@ -370,34 +381,46 @@ Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped b
 
 # make a boxplot
 p1 <- ggplot(data = feedback,
-            mapping = aes(x = herbivory, y = shoot_biomass_mg), colour= soil_inocula)+
+            mapping = aes(x = soil_inocula, y = shoot_biomass_mg), colour= soil_inocula)+
   geom_boxplot(mapping = aes(fill=soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
   geom_jitter(data = feedback,
-              mapping = (aes(herbivory, shoot_biomass_mg, fill = soil_inocula)),
-              shape = 21, size = 1.8, color = "black",
+              mapping = (aes(x = soil_inocula, y = shoot_biomass_mg, fill = soil_inocula)),
+              shape = 21, size = 1.4, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
-  scale_fill_manual(values = color_pathway_induced)
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks
 
 
-p2 <- p1 + facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) +
+#Get names for boxes in facet wrap
+Experiment_names <- c(
+                    `simulated` = "Simulated Herbivory",
+                    `real_insects` = "Insect Herbivory",
+                    `uninfested` = "Not infested",
+                    `Mamestra` = "M. brassicae caterpillars",
+                    `Myzus` = "M. persicae aphids")
+
+
+p2 <- p1 + facet_wrap(herbivory~Experiment, ncol=2,
+                      labeller = as_labeller(Experiment_names)) +
               labs(y="Shoot biomass (mg)", x=" ") +
-              ylim(400,2500)+
+              #ylim(400,2500)+
               axis_looks +
               theme(axis.text.x = element_blank(),
                     axis.ticks.x = element_blank())+
-              theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
-                    strip.background=element_rect(colour="black"))+ #outline of boxes
-              theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
+              theme(strip.text.x = element_text(size = 7, face = "bold"), #text in boxes
+                    strip.background=element_blank())+ #outline of boxes
+              theme(panel.spacing = unit(0.0, "lines"))+ #space in between facets
               theme(legend.position="none") #no legend, to save it better
+
 
 #save plot
 ggsave(
-  filename = "cond_plant-biomass.svg",
+  filename = "feedback_plant-biomass.svg",
   plot = last_plot(),
   path = "./Plots/01_plant-biomass",
   scale = 1.5,
-  width = 1200,
-  height = 700,
+  width = 600,
+  height = 1600,
   units = "px",
   dpi = 300)
 
@@ -406,113 +429,50 @@ ggsave(
 rm(p1,p2)
 dev.off()
 
-
 ```
 
-It's not straightforward to change the facet boxes by the color of the experiment. I will do this in illustrator instead. 
 
 ### Stats
-
-First, quick check for normality to later make a one-way anova per experment using plant_pathway_induction as a factor. 
-
-According to shapiro test data is not significantly different from a normal distribution = it's normal, and the variances between treatments are homogeneous according to the Bartlett test, for the Levene test it is significant meaning that variances are unequal. Let's check later with Dharma. 
 
 
 ```{r}
 
 #check data distribution
-hist(conditioning2$shoot_biomass_mg)
+hist(feedback$shoot_biomass_mg) #normal
 
-#two-way ANOVA
-aov_biomass <- aov(shoot_biomass_mg  ~ plant_pathway_induced * Experiment,
-                   data=conditioning)
-summary(aov_biomass) #there is an interaction between Experiment and ppi
+#lm with 3 factors
+lm <- lm(shoot_biomass_mg  ~ soil_inocula*herbivory*Experiment,
+                   data=feedback)
 
-#checks
-plot(aov_biomass, which = 2) #q-q plot, there are some outliers
-qqPlot(aov_biomass$residuals, #also in this q-q plot, let's split it by experiment instead 
-  id = T)
-plot(aov_biomass, which = 3)
-
-```
-
-
-Simulated Herbivory
-```{r}
-#one-way ANOVA: Simulated
-simu <- subset(conditioning, Experiment == "simulated") %>% droplevels()
-aov_simulated <- aov(shoot_biomass_mg  ~ plant_pathway_induced,
-                   data=simu)
-summary(aov_simulated)
+summary(lm) 
+Anova(lm)
 
 #checks
-plot(aov_simulated, which = 2) 
-qqPlot(aov_simulated$residuals, id = T) #q-q plot looks ok!
-plot(aov_simulated, which = 3)
-hist(aov_simulated$residuals)
+plot(lm, which = 2) #q-q plot ok
+simulateResiduals(lm, plot=T) #ok
+
+#save table
+. <- c("Soil inocula (S)", "Herbivory (H)", "Experiment (E)", "S*E", "S*E", "H*E", "S*H*E", "Residuals")
+lm_table <- cbind (., as.data.frame(Anova(lm)))
+table <- nice_table(as.data.frame(Anova(lm)),
+              title = c("Table X. Linear Model for plant biomass in Feedback phase"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory*Experiment")
+
+flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/feedback_lm_biomass.docx")
+
 
 #post-hoc test
-emmeans <- emmeans(aov_simulated, "plant_pathway_induced", data=simu)
+emmeans <- emmeans(lm, "herbivory", data=feedback)
 posthoc <- pairs(emmeans, adjust="tukey")
 plot(emmeans, comparisons = TRUE) #check 
 
-#make tables
-#Anova
-. <- c("Plant pathway induced", "Residuals")
-aov_table <- cbind (.,as.data.frame(Anova(aov_simulated)))
-table <- nice_table(aov_table,
-              title = c("Table X. One-way ANOVA for Plant Biomass", "Conditioning phase - Simulated Herbivory"),
-              note = "Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1")
-
-flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/cond_aov_plant-biomass_simulated.docx")
-
 #Post-Hoc
 ph_table <- nice_table(as.data.frame(posthoc),
-              title = c("Table X. Post-hoc for Plant Biomass", "Conditioning phase - Simulated Herbivory"),
+              title = "Table X. Post-hoc for Plant Biomass in Feedback phase",
               note = "Post-hoc: Tukey")
 
-flextable::save_as_docx(ph_table, path = "./Tables/01_plant-biomass/cond_ph_plant-biomass_simulated.docx")
+flextable::save_as_docx(ph_table, path = "./Tables/01_plant-biomass/feedback_ph_plant-biomass.docx")
 
-#clean
-rm(emmeans, posthoc, ph_table, ., aov_table, table)
-
-```
-
-Real Herbivory
-```{r}
-#one-way ANOVA: Real Insects
-real <- subset(conditioning, Experiment == "real_insects") %>% droplevels()
-aov_real <- aov(shoot_biomass_mg  ~ plant_pathway_induced,
-                   data=real)
-summary(aov_real)
-
-#checks
-plot(aov_real, which = 2) 
-qqPlot(aov_real$residuals, id = T) #q-q plot looks ok!
-plot(aov_real, which = 3)
-hist(aov_real$residuals)
-
-#post-hoc test
-emmeans <- emmeans(aov_real, "plant_pathway_induced", data=real)
-posthoc <- pairs(emmeans, adjust="tukey")
-plot(emmeans, comparisons = TRUE) #check 
-
-#make tables
-#Anova
-. <- c("Plant pathway induced", "Residuals")
-aov_table <- cbind (.,as.data.frame(Anova(aov_real)))
-table <- nice_table(aov_table,
-              title = c("Table X. One-way ANOVA for Plant Biomass", "Conditioning phase - Insect Herbivory"),
-              note = "Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1")
-
-flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/cond_aov_plant-biomass_real.docx")
-
-#Post-Hoc
-ph_table <- nice_table(as.data.frame(posthoc),
-              title = c("Table X. Post-hoc for Plant Biomass", "Conditioning phase - Insect Herbivory"),
-              note = "Post-hoc: Tukey")
-
-flextable::save_as_docx(ph_table, path = "./Tables/01_plant-biomass/cond_ph_plant-biomass_real.docx")
 
 ```
 
