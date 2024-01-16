@@ -1,0 +1,116 @@
+---
+title: "04_insect_performance"
+author: "Marcela Aragon"
+date: "16/1/2024"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: 
+     collapsed: false
+     smooth_scroll: true
+    df_print: paged
+    code_folding: hide
+    keep_md: true
+editor_options: 
+  chunk_output_type: console
+---
+
+This script will deal with ploting and analyzing the concentration of X different phytohormones in both conditioning and feedback phases;
+
+# General settings 
+
+## Rmarkdown
+
+```{r global settings, include=FALSE}
+
+#Set global options for r chunks
+knitr::opts_chunk$set(
+  echo = TRUE,#show code
+  fig.width = 9,
+  fig.height = 6,
+  dpi = 300,
+  error=TRUE, #keep knitting even if error appears
+  message=FALSE, #don't show messages
+  warning=FALSE, #don't show warnings
+  collapse=FALSE)
+
+```
+
+## Loading packages
+
+```{r loading packages, echo=TRUE}
+
+#Set working directory to project directory 
+setwd("./")
+getwd() #ok
+
+#data
+library(knitr)
+library(dplyr)
+library(tibble)
+
+#plotting
+library(ggplot2)
+library(ggpubr)
+library(GGally)
+library(RColorBrewer)
+library(grDevices)
+library(rempsyc) #tables
+
+#stats
+library(DHARMa)
+library(lmtest)
+library(fitdistrplus)
+library(AICcmodavg)
+library(emmeans)
+library(multcompView)
+library(multcomp)
+library(postHoc)
+library(car)
+library(effsize) #Cohen's D
+library(lsr)
+
+library(ropls) #PSLDA
+library(PERMANOVA)
+library(plsdepot)
+library(santaR)
+library(vegan)
+
+
+```
+
+## Global settings for plots 
+
+```{r settings for plots}
+
+# Setting up white background for plots
+theme_set(theme_bw())
+
+# Set colors
+color_JA <- rgb(0.9019607843137255, 0.6235294117647059, 0) #yellow-orange
+color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
+color_control <- rgb(0.6,0.6,0.6) #gray
+color_simulated <- rgb(0.8,0.2,0.6) #pink
+color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
+color_non-conditioned <-rgb(1,1,1,1)
+
+color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
+color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
+
+# Set default axis looks
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
+                                               face = "bold", angle=0, hjust=0.5))+ #text in X
+  theme(axis.text.y = element_text(colour = "black", size = 9, face = "bold"))+ #text in y
+  theme(axis.title=element_text(size=11, face = "bold"))+ #all texts
+  theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)))+
+  theme(panel.grid.major = element_blank(), #no grid
+        panel.grid.minor = element_blank()) #no grid
+  #theme(legend.position="none")+ #no legend
+
+#Get names for boxes in facet wrap
+Experiment_names <- c(
+                    `simulated` = "Simulated Herbivory",
+                    `real_insects` = "Insect Herbivory")
+
+```
