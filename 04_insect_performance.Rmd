@@ -77,6 +77,24 @@ library(plsdepot)
 library(santaR)
 library(vegan)
 
+#check later
+library(ggplot2)
+library(DHARMa)
+library(lmtest)
+library(fitdistrplus)
+library(AICcmodavg)
+library(emmeans)
+library(multcompView)
+library(multcomp)
+library(postHoc)
+library(car)
+library(ggpubr)
+library(jtools)
+library(DescTools)
+library(lme4)
+library(bbmle)
+library(nlme)
+
 
 ```
 
@@ -110,7 +128,159 @@ axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
 
 #Get names for boxes in facet wrap
 Experiment_names <- c(
-                    `simulated` = "Simulated Herbivory",
-                    `real_insects` = "Insect Herbivory")
+                    `simulated` = "Simulated Herbivory inocula",
+                    `real_insects` = "Insect Herbivory inocula")
 
 ```
+
+# Caterpillars
+
+```{r}
+#load data
+caterpillars <- readRDS("./plant_data/caterpillars.rds")
+
+#explore 
+summary(caterpillars)
+colnames(caterpillars)
+
+#change levels of Experiment
+levels(caterpillars$Experiment)
+levels(caterpillars$soil_inocula)
+caterpillars <- caterpillars %>%
+                mutate(Experiment = factor(Experiment,
+                                           levels = c("simulated", "real_insects" )))%>%
+                mutate(soil_inocula = factor(soil_inocula,
+                                                      levels=c("non-conditioned", "control-conditioned",
+                                                               "JA-conditioned", "SA-conditioned")))
+
+#let's remove non-conditioned for now
+caterpillars <-  caterpillars %>% 
+                   subset(soil_inocula != "non-conditioned")%>%
+                   subset(caterpillar_number != 0)%>% #removed 3 plants with 0 caterpillars 
+                   droplevels()
+str(cat_long)
+
+#make it long
+#making it long 
+cat_long <- caterpillars %>% 
+               tidyr::pivot_longer(cols = c(7:11), 
+               names_to = "caterpillar",
+               values_to = "weight",
+               values_drop_na = TRUE)
+
+```
+
+
+Plotting it
+```{r}
+
+#check correlation between caterpillar number and weight
+plot(cat_long$caterpillar_number,cat_long$weight) #it's the opposite of what I expected 
+
+cat <- ggplot(data = cat_long, mapping = aes(x = soil_inocula, y = weight), 
+              colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = cat_long, mapping = (aes(soil_inocula, weight, fill = soil_inocula)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)
+
+p.cat <- cat + 
+         facet_wrap(~Experiment)+ #, scales = "free") +
+          #ylim(0,35)+
+          axis_looks+
+         # theme(axis.text.x = element_blank())+
+          theme(legend.position = "none")
+p.cat 
+
+
+# make a boxplot
+p1 <- ggplot(data = cat_long,
+            mapping = aes(x = soil_inocula, y = weight), colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill=soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = cat_long,
+              mapping = (aes(x = soil_inocula, y = weight, fill = soil_inocula)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)
+
+
+p2 <- p1 + facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) +
+              labs(y="M. brassicae weight (mg) 8dpi", x=" ") +
+              #ylim(400,2500)+
+              axis_looks +
+              theme(axis.text.x = element_blank(),
+                    axis.ticks.x = element_blank())+
+              theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
+                    strip.background=element_rect(colour="black"))+ #outline of boxes
+              theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
+              theme(legend.position="none") #no legend, to save it better
+
+
+#save plot
+ggsave(
+  filename = "caterpillar_weight.svg",
+  plot = p2,
+  path = "./Plots/04_insect_performance",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+```
+
+## Stats
+
+```{r}
+#linear Mixed-Effect Models
+#Both
+glme <- glmer(weight ~ soil_inocula*Experiment+ (1|ID),
+              family=Gamma, data=cat_long)
+
+
+#Get model info 
+library(jtools)
+summ(glme)
+Anova(glme)
+summary(glme)
+
+#check
+library("blmeco") 
+dispersion_glmer(glme) #it shouldn't be over 1.4 so it's ok
+qqnorm(resid(glme), main="normal qq-plot, residuals") #good
+qqline(resid(glme))
+
+
+par(mfrow=c(2,2))
+qqnorm(resid(glme), main="normal qq-plot, residuals")
+qqline(resid(glme))
+
+plot(fitted(glme), resid(glme)) #residuals vs fitted
+abline(h=0)
+
+#save table
+. <- c("Soil inocula (S)", "Experiment (E)", "S*E")
+glm_table <- cbind (.,as.data.frame(Anova(glme)))
+table <- nice_table(glm_table,
+              title = c("Table X. Generalized Linear Model for Caterpillar Weight"),
+              note = "Gamma distribution")
+
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpillar_weight_glm.docx")
+
+```
+
+
+
+
+
+
+
+
+# Aphids
+
+```{r}
+
+```
+
+
