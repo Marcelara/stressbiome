@@ -20,23 +20,6 @@ This script will deal with ploting and analyzing the concentration of X differen
 
 # General settings 
 
-## Rmarkdown
-
-```{r global settings, include=FALSE}
-
-#Set global options for r chunks
-knitr::opts_chunk$set(
-  echo = TRUE,#show code
-  fig.width = 9,
-  fig.height = 6,
-  dpi = 300,
-  error=TRUE, #keep knitting even if error appears
-  message=FALSE, #don't show messages
-  warning=FALSE, #don't show warnings
-  collapse=FALSE)
-
-```
-
 ## Loading packages
 
 ```{r loading packages, echo=TRUE}
@@ -542,3 +525,327 @@ dev.off()
 
 These two plots will be fused in one in illustrator
 
+## Feedback
+
+```{r}
+
+#subset existing df to only feedback
+gluco
+long
+
+#subsetting df to only conditioning
+feedback <- gluco %>% 
+                filter(Phase == "feedback")%>%
+                subset(soil_inocula != "non-conditioned")%>% 
+                droplevels()
+
+#subsetting df to only feedback
+feedback_long <- long %>% 
+                filter(Phase == "feedback")%>%
+                subset(soil_inocula != "non-conditioned")%>%
+                droplevels()
+
+#change names of soil_inocula
+levels(feedback$soil_inocula)
+feedback <- feedback  %>%
+            mutate(soil_inocula=factor(soil_inocula, labels=c("control_inocula", 
+                                                              "JA_inocula",
+                                                              "SA_inocula")))
+levels(feedback_long$soil_inocula)
+feedback_long <- feedback_long  %>%
+                  mutate(soil_inocula=factor(soil_inocula, labels=c("control_inocula", 
+                                                              "JA_inocula",
+                                                              "SA_inocula")))
+#change names of herbivory
+levels(feedback$herbivory)
+feedback <- feedback  %>%
+            mutate(herbivory=factor(herbivory, levels=c("without", "caterpillar", "aphid")))
+
+feedback <- feedback  %>%
+            mutate(herbivory=factor(herbivory,
+                                    labels=c("uninfested", "Mamestra", "Myzus")))
+
+levels(feedback_long$herbivory)
+feedback_long <- feedback_long  %>%
+                  mutate(herbivory=factor(herbivory, levels=c("without", "caterpillar", "aphid")))
+
+feedback_long <- feedback_long  %>%
+                mutate(herbivory=factor(herbivory,
+                                    labels=c("uninfested", "Mamestra", "Myzus")))
+
+```
+
+### PLSDA
+
+```{r}
+
+#The following code was written by Els van de Zande, thank you Els!
+
+View(feedback)
+
+str(feedback)
+matrixdata<-feedback[,11:18]# keep only values
+matrixdata <- as.matrix(matrixdata[,])# make it numeric
+metadata<-feedback[,c("Experiment", "soil_inocula", "herbivory")]
+metadata_number <- metadata %>% #change from characters to numbers
+                     mutate(Experiment = case_when(Experiment == 'simulated' ~ '1',
+                                                   TRUE ~ '2')) %>%
+                     mutate(soil_inocula = case_when(soil_inocula == 'control_inocula' ~ '1',
+                                                     soil_inocula == 'JA_inocula' ~ '2',
+                                                       TRUE ~ '3'))%>% #SA inocula
+                     mutate(herbivory = case_when(herbivory == 'uninfested' ~ '1',
+                                                  herbivory == 'Mamestra' ~ '2',
+                                                  TRUE ~ '3')) #Myzus
+View(metadata_number)
+MetaData <-data.matrix(metadata_number) #makes a numeric matrix
+
+#PLS-DA
+plsda <-opls(matrixdata,MetaData, predI=2)
+plsda_center <-opls(matrixdata,MetaData, scaleC = "center", predI=2)
+plsda_pareto <-opls(matrixdata,MetaData, scaleC = "pareto", predI=2)#removes the relative importance of large values
+                                                                    #but keeps the data structure intact.
+#check
+plsda_pareto@summaryDF
+plot(plsda_pareto)
+plsda_pareto@scoreMN
+plot(plsda_pareto,
+     typeVc = "x-score",
+     parAsColFcVn = MetaData[,"herbivory"],
+     parLabVc = as.character(MetaData[,"herbivory"]))
+
+#split by factors
+soil_inocula_Factor <- MetaData[,"soil_inocula"]
+experiment_Factor <- MetaData[,"Experiment"]
+herbivory_Factor <- MetaData[,"herbivory"]
+
+plsda_pareto2 <-opls(matrixdata,soil_inocula_Factor, scaleC = "pareto", permI=1000) #plant pathway induced
+plsda_pareto3 <-opls(matrixdata,experiment_Factor, scaleC = "pareto", permI=1000) #Experiment 
+plsda_pareto4 <-opls(matrixdata,herbivory_Factor, scaleC = "pareto", permI=1000) #Herbivory, something goes wrong
+
+#get scores to plot them
+scores<-plsda_pareto@scoreMN
+scores_df<-as.data.frame(scores) #make new df 
+
+scores_df$p1 <- as.numeric(scores_df$p1)
+scores_df$p2 <- as.numeric(scores_df$p2)
+
+scores_df2 <- scores_df %>% #add info
+              mutate(Experiment = as.numeric(metadata_number$Experiment))%>%
+              mutate(soil_inocula = as.numeric(metadata_number$soil_inocula))%>%
+              mutate(herbivory = as.numeric(metadata_number$herbivory))
+              
+#Plot the scores using ggplot2
+scores_df2[c(3:5)] <- lapply(scores_df2[c(3:5)] , factor)
+str(scores_df2)
+
+
+scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2,
+                                  fill=soil_inocula,#inside
+                                  shape=herbivory, #shape
+                                  color=Experiment))+ #outline
+  geom_point(size = 4, stroke=0.5, alpha=0.8,
+             aes(color=Experiment, fill=soil_inocula))+
+  scale_shape_manual(values=c(21,22,24))+
+  scale_color_manual(values = c("black", "white"))+ #outline
+  scale_fill_manual(values=color_pathway_induced)+ #inside
+  labs(x = "t1(36%)", y = "t2(34%)",
+  color="Experiment", shape="herbivory", fill="Soil inocula")+
+  axis_looks
+
+  
+#now add loadings
+loadings<-plsda_pareto@loadingMN
+loadings_df<-as.data.frame(loadings)
+
+loadings_df$p1 <- as.numeric(loadings_df$p1)
+loadings_df$p2 <- as.numeric(loadings_df$p2)
+
+#makes plot with arrows marking direction
+rownames(loadings)
+glucosinolate_names <- c("Total","3MSOP","4MSOB","Sinigrin","4OHI3M","I3M","4MOI3M","1MOI3M")
+
+Biplot <-scoreplot+
+         geom_hline(yintercept=0, linetype='dotted', col = 'gray20',linewidth = 0.2 )+
+         geom_vline(xintercept=0, linetype='dotted', col = 'gray20', linewidth = 0.2)+
+         geom_segment(data = loadings_df, aes(x = 0, y = 0, xend = (p1*20), yend = (p2*20)),
+                      arrow = arrow(length = unit(0.5, "picas"), type="closed"),
+                      colour = "black", linewidth = 0.5, inherit.aes = FALSE)+
+         geom_text(aes(x = (p1*20), y = (p2*20), label = glucosinolate_names,
+                angle = 0.45, hjust = -.1, vjust = .2),
+                 data = loadings_df,
+                 colour = "black", size=4, inherit.aes = FALSE)+
+        #ylim(-60,60)+
+        #xlim(-100,100)+
+        axis_looks
+         #theme(legend.position = "none")
+
+#save plot
+ggsave(
+  filename = "feedback_glucosinolates_PLSDA.svg",
+  plot = Biplot,
+  path = "./Plots/03_glucosinolates",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+#make same plot but colored by herbivory
+scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2,
+                                  fill=herbivory,#inside
+                                  shape=soil_inocula, #shape
+                                  color=Experiment))+ #outline
+  geom_point(size = 4, stroke=0.5, alpha=0.8,
+             aes(color=Experiment, fill=herbivory))+
+  scale_shape_manual(values=c(21,22,24))+
+  scale_color_manual(values = c("black", "white"))+ #outline
+  scale_fill_manual(values=color_pathway_induced)+ #inside
+  labs(x = "t1(36%)", y = "t2(34%)",
+  color="Experiment", shape="Soil inocula", fill="Herbivory")+
+  axis_looks
+
+Biplot <-scoreplot+
+         geom_hline(yintercept=0, linetype='dotted', col = 'gray20',linewidth = 0.2 )+
+         geom_vline(xintercept=0, linetype='dotted', col = 'gray20', linewidth = 0.2)+
+         geom_segment(data = loadings_df, aes(x = 0, y = 0, xend = (p1*20), yend = (p2*20)),
+                      arrow = arrow(length = unit(0.5, "picas"), type="closed"),
+                      colour = "black", linewidth = 0.5, inherit.aes = FALSE)+
+         geom_text(aes(x = (p1*20), y = (p2*20), label = glucosinolate_names,
+                angle = 0.45, hjust = -.1, vjust = .2),
+                 data = loadings_df,
+                 colour = "black", size=4, inherit.aes = FALSE)+
+        #ylim(-60,60)+
+        #xlim(-100,100)+
+        axis_looks
+         #theme(legend.position = "none")
+
+#save plot
+ggsave(
+  filename = "feedback_glucosinolates_PLSDA_ByHerbivory.svg",
+  plot = Biplot,
+  path = "./Plots/03_glucosinolates",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+#Let's also get the VIP scores 
+
+#extract VIP (Variable's importance) scores and CV-value
+VIPmatrixdataPLSDA<-getVipVn(plsda_pareto, orthoL = FALSE)
+
+VIP <- as.data.frame(VIPmatrixdataPLSDA)
+VIP <- VIP %>%
+        arrange(VIP)%>%
+        rename(VIP = VIPmatrixdataPLSDA)%>%
+        mutate(glucosinolate=rownames(.))%>%
+        mutate(glucosinolate)
+
+VIP$glucosinolate <- as.factor(VIP$glucosinolate)
+
+#plot it to have it next to the plot
+p_VIP <- VIP %>%
+         mutate(glucosinolate=factor(glucosinolate, levels=glucosinolate)) %>%
+         ggplot(aes(x = glucosinolate, y = VIP)) +
+         geom_point(size = 4) +
+         coord_flip()+
+         axis_looks+
+         labs(x = " ", y = "VIP score")
+
+#save plot
+ggsave(
+  filename = "feedback_glucosinolates_VIP-scores.svg",
+  plot = p_VIP,
+  path = "./Plots/03_glucosinolates",
+  scale = 1.5,
+  width = 500,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+```
+
+Now, let's analyze the data with a PERMANOVA. First, data is auto-scaled to calculate a distance matrix from which a PERMANOVA is run to see whether there is an effect of plant pathway induced, the type of induction and the interaction of these two factors. 
+
+### PERMANOVA
+
+```{r}
+
+#PERMANOVA
+UVmatrixdata<- santaR:::scaling_UV(matrixdata) #for auto-scaling using st. deviation
+DistanceMatrix<-dist(UVmatrixdata, method="euclidean")
+
+#make it a df again
+MetaData <-as.data.frame(metadata) 
+MetaData[,c(1:3)]<- lapply(MetaData[,c(1:3)], as.factor)
+
+#run PERMANOVA
+permanova <- adonis2(DistanceMatrix~soil_inocula*herbivory*Experiment,
+                      data=MetaData, permutations = 999, method="bray")
+
+#make table for Word
+. <- c("Soil inocula (S)", "Herbivory (H)", "Experiment (E)", "S*H", "S*E", "H*E", "S*H*E",
+       "Residual", "Total") #names of factors
+permanova_table <- cbind (.,as.data.frame(permanova))
+
+table <- nice_table(permanova_table,
+              title = c("Table X. PERMANOVA for Glucosinolates", "Feedback phase",
+                        "DistanceMatrix~soil_inocula*herbivory*Experiment"),
+              note = "999 number of permutations")
+
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/permanova_glucosinolates_feedback.docx")
+
+#Run post-hoc tests
+
+#Option 1
+groups <- MetaData[["herbivory"]]
+mod <- betadisper(DistanceMatrix,groups) #checking beta-dispersion
+permutest(mod)
+plot(mod)
+boxplot(mod)
+mod.HSD <- TukeyHSD(mod)
+mod.HSD
+plot(mod.HSD)
+
+#Option 2
+#Using this for now 
+library(metagMisc)
+
+#Soil inocula
+pairwise_ppi <- adonis_pairwise(x = MetaData, dd = DistanceMatrix,
+                                group.var = "herbivory", p.adj="fdr", permut=999)
+
+pair_ppi_df <- as.data.frame(pairwise_ppi$Adonis.tab)
+rownames(pair_ppi_df) <- pair_ppi_df$Comparison
+
+#make table for Word -- Not working 
+Comparisons <- c("Control-inocula vs JA-inocula", "Control-inocula vs SA-inocula",
+                 "JA-inocula vs SA-inocula") #names of factors
+
+pairwise_table <- cbind (Comparisons, as.data.frame(pair_ppi_df))
+
+table <- nice_table(pairwise_table, #Not working
+              title = c("Table X. Post-hoc for Soil Inocula", "Feedback phase"),
+              note = "999 number of permutations")
+
+str(pair_ppi_df)
+
+#save it
+table <- nice_table(pair_ppi_df, #Not working
+              title = c("Table X. Post-Hoc PERMANOVA for Plant Phytohormones", "Conditioning phase"))
+              
+#flextable::save_as_docx(table, path = "./Tables/02_phytohormones/posthoc_cond_ppi.docx")
+
+```
+
+From: https://www.researchgate.net/post/How_should_I_correctly_manage_PERMANOVA_for_factors_with_interactions
+
+A significant Permanova means one of three things. 1) There is a difference in the location of the samples (i.e. the average community composition), 2) There is a difference in the dispersion of the samples (i.e. the variability in the community composition), or 3) There is a difference in both the location and the dispersion.
+So, if you get a significant Permanova you'll want to distinguish between the three options. That of course is why you need to run the permdisp. If you get a non-significant Permdisp you can conclude the first option above is the correct one. If you get a significant Permdisp then it is either the second or third option (that is there is definitely a difference in dispersion and maybe a difference in location). There is no fool-proof way to distinguish between these two, but looking at an MDS plot of the data will hopefully help you do so (also see note 2 below).
+A few notes.
+1) Permanova is not as powerful as permdisp at detecting differences in dispersion so it's possible to get a non-significant Permanova and a significant permdisp. This would mean that you have a difference in dispersion only. That can be an important ecologically in itself.
+2) Transforming your data (square-root, cubed root, log, presence-absence) can reduce your dispersion and is a potential way to help distinguish between dispersion and both dispersion and location. However you need to take the transformation into account when interpreting the results. A significant permanova on raw data and a significant permanova on presence-absence data are interpreted differently, but that is another discussion in itself.
