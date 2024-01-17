@@ -207,15 +207,13 @@ p1 <- ggplot(data = cat_long,
 
 p2 <- p1 + facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) +
               labs(y="M. brassicae weight (mg) 8dpi", x=" ") +
-              #ylim(400,2500)+
+              scale_x_discrete(labels=c("control-conditioned" = "Control-inocula", "JA-conditioned" = "JA-inocula",
+                                      "SA-conditioned" = "SA-inocula"))+
               axis_looks +
-              theme(axis.text.x = element_blank(),
-                    axis.ticks.x = element_blank())+
               theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
                     strip.background=element_rect(colour="black"))+ #outline of boxes
               theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
               theme(legend.position="none") #no legend, to save it better
-
 
 #save plot
 ggsave(
@@ -270,16 +268,155 @@ flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpilla
 
 ```
 
-
-
-
-
-
-
-
 # Aphids
 
 ```{r}
+#load data
+aphids <- readRDS("./plant_data/aphids.rds")
+
+#explore 
+summary(aphids)
+colnames(aphids)
+
+#change levels of Experiment
+levels(aphids$Experiment)
+levels(aphids$soil_inocula)
+aphids <- aphids %>%
+                mutate(Experiment = factor(Experiment,
+                                           levels = c("simulated", "real_insects" )))%>%
+                mutate(soil_inocula = factor(soil_inocula,
+                                                      levels=c("non-conditioned", "control-conditioned",
+                                                               "JA-conditioned", "SA-conditioned")))
+
+#let's remove non-conditioned for now
+aphids <-  aphids %>% 
+                   subset(soil_inocula != "non-conditioned")%>%
+                   subset(ID != 145 & ID!= 351)%>% #removed 2 plants with wrong infestation 
+                   droplevels()
+
+#make it long
+aphids_long <- aphids %>% 
+               tidyr::pivot_longer(cols = c(7:8), 
+               names_to = "time_point",
+               values_to = "count",
+               values_drop_na = TRUE)
+
+str(aphids_long)
+aphids_long[c(1:2,7)] <- lapply(aphids_long[c(1:2,7)], as.factor)
+
+aphids_long$time_point <- factor(aphids_long$time_point,
+                                 levels = c("dpi_8", "dpi_14")) 
+
+```
+
+
+Plotting it
+```{r}
+
+aphids <- ggplot(data = subset(aphids_long, time_point == "dpi_8"),
+                 mapping = aes(x = soil_inocula, y = count), 
+              colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(aphids_long, time_point == "dpi_8"),
+              mapping = (aes(soil_inocula, count, fill = soil_inocula)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)
+
+p.aphids <- aphids + 
+            facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) + 
+            axis_looks+
+            labs(y="Number of M. persicae aphids 8dpi", x=" ")+ 
+            scale_x_discrete(labels=c("control-conditioned" = "Control-inocula", "JA-conditioned" = "JA-inocula",
+                                      "SA-conditioned" = "SA-inocula"))+
+            theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
+              theme(legend.position="none")+ #no legend, to save it better
+            theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
+                    strip.background=element_rect(colour="black")) #outline of boxes
+
+#save plot
+ggsave(
+  filename = "aphid_number_8dpi.svg",
+  plot = p.aphids,
+  path = "./Plots/04_insect_performance",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+#make another for 14dpi for supplementary
+aphids <- ggplot(data = subset(aphids_long, time_point == "dpi_14"),
+                 mapping = aes(x = soil_inocula, y = count), 
+              colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(aphids_long, time_point == "dpi_14"),
+              mapping = (aes(soil_inocula, count, fill = soil_inocula)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)
+
+p.aphids <- aphids + 
+            facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) + 
+            axis_looks+
+            labs(y="Number of M. persicae aphids 14dpi", x=" ")+ 
+            scale_x_discrete(labels=c("control-conditioned" = "Control-inocula", "JA-conditioned" = "JA-inocula",
+                                      "SA-conditioned" = "SA-inocula"))+
+            theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
+              theme(legend.position="none")+ #no legend, to save it better
+            theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
+                    strip.background=element_rect(colour="black")) #outline of boxes
+
+#save plot
+ggsave(
+  filename = "aphid_number_14dpi.svg",
+  plot = p.aphids,
+  path = "./Plots/04_insect_performance",
+  scale = 1.5,
+  width = 1200,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+```
+
+## Stats
+
+```{r}
+#linear Mixed-Effect Models
+
+dpi14 <- subset(aphids_long, time_point == "dpi_14")
+
+#Both
+glm <- glm(count ~ soil_inocula*time_point*Experiment,
+              family=Gamma, data=aphids_long)
+
+#Get model info 
+library(jtools)
+summ(glm)
+Anova(glm)
+summary(glm)
+
+#check
+simulateResiduals(glm, plot=T) #ok!
+
+library("blmeco") 
+dispersion_glmer(glme) #it shouldn't be over 1.4 so it's ok
+qqnorm(resid(glm), main="normal qq-plot, residuals") #good
+qqline(resid(glm))
+
+plot(fitted(glm), resid(glm)) #residuals vs fitted, ok
+abline(h=0)
+
+#save table
+. <- c("Soil inocula (S)", "Time point (T)", "Experiment (E)", "S*T", "S*E", "T*E", "S*T*E")
+glm_table <- cbind (.,as.data.frame(Anova(glm)))
+table <- nice_table(glm_table,
+              title = c("Table X. Generalized Linear Model for Aphid number Full 2 time points"),
+              note = "Gamma distribution")
+
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_TwoTimePoints_glm.docx")
 
 ```
 
