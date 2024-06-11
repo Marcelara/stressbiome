@@ -1,0 +1,65 @@
+variable;Kim_Ctr;Riv_Ctr;test;test_statistic;Pvalue;sign;n_Kim_Ctr;n_Riv_Ctr
+lat.e2s;177.1 ± 32.4;262.7 ± 31.9;Wilcoxon rank sum test with continuity correction;64;0.0654;ns;12;18
+lat.e2sp;170.8 ± 32.7;253.7 ± 32.2;Wilcoxon rank sum exact test;65;0.0716;ns;12;18
+sum.f;13.6 ± 11.3;30.8 ± 11.5;Wilcoxon rank sum test with continuity correction;87;0.3151;ns;12;18
+sing.e1;1.8 ± 0.8;2.7 ± 0.8;Wilcoxon rank sum test with continuity correction;84.5;0.3186;ns;12;18
+lat.c;6.3 ± 2.2;9 ± 2.4;Wilcoxon rank sum exact test;84;0.3252;ns;12;18
+lat.w11p;473.7 ± 2.2;471 ± 2.4;Wilcoxon rank sum exact test;132;0.3252;ns;12;18
+lat.w12p;473.7 ± 2.2;471 ± 2.4;Wilcoxon rank sum exact test;132;0.3252;ns;12;18
+num.f;0.6 ± 0.4;0.8 ± 0.3;Wilcoxon rank sum test with continuity correction;88;0.3353;ns;12;18
+prop.e1m;7.8 ± 3.1;5.8 ± 2.8;Wilcoxon rank sum test with continuity correction;128;0.3973;ns;12;18
+sum.c;236.4 ± 25.9;205 ± 22.5;Wilcoxon rank sum exact test;128;0.415;ns;12;18
+mean.e2st;59.6 ± 11.5;Inf ± NaN;Wilcoxon rank sum exact test;76;0.4303;ns;11;17
+mean.g;33.5 ± 9.1;24.7 ± 8;Wilcoxon rank sum exact test;26;0.4351;ns;5;8
+occ.f;25%;44%;Pearson's Chi-squared test with Yates' continuity correction;0.484449761;0.4864;ns;12;18
+num.e2s;2.4 ± 0.6;2 ± 0.4;Wilcoxon rank sum test with continuity correction;124;0.4922;ns;12;18
+sum.e1m;17.9 ± 9.3;13.3 ± 5.9;Wilcoxon rank sum test with continuity correction;124;0.501;ns;12;18
+num.e2;6.8 ± 2.4;6.1 ± 1;Wilcoxon rank sum test with continuity correction;93;0.5365;ns;12;18
+num.e1;10.3 ± 3;10.7 ± 1.5;Wilcoxon rank sum test with continuity correction;93;0.5384;ns;12;18
+lat.e1p;121.2 ± 16;116.9 ± 22.7;Wilcoxon rank sum exact test;123;0.5451;ns;12;18
+prop.e1;19.3 ± 5.4;14.6 ± 3.5;Wilcoxon rank sum exact test;123;0.5451;ns;12;18
+mean.e2s;54.4 ± 11.8;76.4 ± 16.2;Wilcoxon rank sum exact test;77;0.6102;ns;11;16
+num.e1f;2.9 ± 0.6;3.2 ± 0.5;Wilcoxon rank sum test with continuity correction;97;0.6485;ns;12;18
+lat.e1;127.5 ± 16.9;125.9 ± 22.7;Wilcoxon rank sum exact test;119;0.6615;ns;12;18
+sum.e1l;3 ± 1.4;3 ± 1.1;Wilcoxon rank sum test with continuity correction;118;0.6848;ns;12;18
+num.c;33.7 ± 5.6;32.6 ± 5.6;Wilcoxon rank sum test with continuity correction;118;0.6873;ns;12;18
+occ.sing.e1;58%;72%;Pearson's Chi-squared test with Yates' continuity correction;0.15625;0.6926;ns;12;18
+prop.e1f;7.2 ± 3.3;4.9 ± 1.2;Wilcoxon rank sum exact test;117;0.7231;ns;12;18
+num.e1l;2.2 ± 0.5;1.9 ± 0.4;Wilcoxon rank sum test with continuity correction;116.5;0.7291;ns;12;18
+sum.e2s;112.2 ± 26.1;134.1 ± 31.1;Wilcoxon rank sum test with continuity correction;100;0.7508;ns;12;18
+sum.e2;126 ± 27.7;145.7 ± 30.7;Wilcoxon rank sum exact test;100;0.7546;ns;12;18
+num.e1m;3.4 ± 1.9;2.8 ± 0.9;Wilcoxon rank sum test with continuity correction;115;0.7747;ns;12;18
+num.g;0.8 ± 0.3;0.9 ± 0.3;Wilcoxon rank sum test with continuity correction;102;0.7956;ns;12;18
+num.cs;19 ± 3.8;17.7 ± 3.6;Wilcoxon rank sum test with continuity correction;114.5;0.7991;ns;12;18
+sum.np;53.3 ± 14.2;52 ± 10.7;Wilcoxon rank sum exact test;102;0.8187;ns;12;18
+max.e1;10.4 ± 3.8;9 ± 2.4;Wilcoxon rank sum exact test;103;0.8513;ns;12;18
+num.css;8.4 ± 2.4;7.6 ± 1.7;Wilcoxon rank sum test with continuity correction;112.5;0.8647;ns;12;18
+prop.e1l;4.3 ± 2.6;3.9 ± 1.5;Wilcoxon rank sum test with continuity correction;112;0.8811;ns;12;18
+mean.e1;3.1 ± 0.9;2.6 ± 0.7;Wilcoxon rank sum exact test;104;0.8841;ns;12;18
+sum.e1f;4.3 ± 1.1;3.4 ± 0.5;Wilcoxon rank sum exact test;112;0.8841;ns;12;18
+mean.e2t;33.9 ± 9.7;38.2 ± 10.5;Wilcoxon rank sum exact test;111;0.9171;ns;12;18
+max.e2;78.8 ± 18.8;85.6 ± 18.2;Wilcoxon rank sum exact test;105;0.9171;ns;12;18
+mean.c;8.7 ± 1.4;9.6 ± 1.6;Wilcoxon rank sum exact test;110;0.9502;ns;12;18
+lat.e2;142.6 ± 18.1;152.7 ± 22.5;Wilcoxon rank sum exact test;106;0.9502;ns;12;18
+sum.e1;29.8 ± 9.8;25.3 ± 7;Wilcoxon rank sum exact test;109;0.9834;ns;12;18
+mean.e2;31.8 ± 9.7;36.5 ± 10.3;Wilcoxon rank sum exact test;107;0.9834;ns;12;18
+occ.e2s;92%;89%;Pearson's Chi-squared test with Yates' continuity correction;6.16E-31;1;ns;12;18
+lat.e2p;136.3 ± 17.7;143.7 ± 23.1;Wilcoxon rank sum exact test;108;1;ns;12;18
+mean.f;52.8 ± 42.3;51.3 ± 16.8;Wilcoxon rank sum exact test;12;1;ns;3;8
+occ.g;42%;44%;Pearson's Chi-squared test with Yates' continuity correction;3.69E-31;1;ns;12;18
+sum.g;20.8 ± 9.2;20.8 ± 8.4;Wilcoxon rank sum test with continuity correction;108;1;ns;12;18
+occ.pd;0%;0%;NA;NA;NA;NA;NA;NA
+num.pd;NA ± NA;NA ± NA;NA;NA;NA;NA;NA;NA
+sum.pd;NA ± NA;NA ± NA;NA;NA;NA;NA;NA;NA
+mean.pd;NA ± NA;NA ± NA;NA;NA;NA;NA;NA;NA
+rate.pd;NA ± NA;NA ± NA;NA;NA;NA;NA;NA;NA
+occ.e1;100%;100%;Pearson's Chi-squared test;NA;NA;NA;12;18
+occ.e2;100%;100%;Pearson's Chi-squared test;NA;NA;NA;12;18
+occ.w11;0%;0%;NA;NA;NA;NA;NA;NA
+num.w11;0 ± 0;0 ± 0;Wilcoxon rank sum test with continuity correction;108;NA;NA;12;18
+sum.w11;0 ± 0;0 ± 0;Wilcoxon rank sum test with continuity correction;108;NA;NA;12;18
+mean.w11;NA ± NA;NA ± NA;NA;NA;NA;NA;NA;NA
+occ.w12;0%;0%;NA;NA;NA;NA;NA;NA
+num.w12;0 ± 0;0 ± 0;Wilcoxon rank sum test with continuity correction;108;NA;NA;12;18
+sum.w12;0 ± 0;0 ± 0;Wilcoxon rank sum test with continuity correction;108;NA;NA;12;18
+mean.w12;NA ± NA;NA ± NA;NA;NA;NA;NA;NA;NA

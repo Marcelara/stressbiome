@@ -1,0 +1,65 @@
+variable;Kim_Ctr;Kim_SA;Riv_Ctr;Riv_SA;test;test_statistic;Pvalue;sign;n_Kim_Ctr;n_Kim_SA;n_Riv_Ctr;n_Riv_SA;;Behaviour;Variable;Kim_Ctr;Kim_SA;Riv_Ctr;Riv_SA;P-value;Significance
+sum.c;236.4 ñ 25.9;276.6 ñ 21.5;205 ñ 22.5;281 ñ 22.1;Kruskal-Wallis rank sum test;7.723573587;0.0521;ns;12;17;18;15;;Non Probing (np);Non probing (min);53.3 ñ 14.2;47.1 ñ 6.5;52 ñ 10.7;54 ñ 7.2;0.8258;ns
+occ.sing.e1;58%;88%;72%;93%;Pearson's Chi-squared test;6.326466997;0.0968;ns;12;17;18;15;;Pathway (C) ;Number of events;33.7 ñ 5.6;35.2 ñ 4.5;32.6 ñ 5.6;37 ñ 6.3;0.9249;ns
+sing.e1;1.8 ñ 0.8;3.2 ñ 0.6;2.7 ñ 0.8;3.5 ñ 0.7;Kruskal-Wallis rank sum test;5.64884207;0.13;ns;12;17;18;15;;;Number of short events;19 ñ 3.8;15.6 ñ 3;17.7 ñ 3.6;17 ñ 4.5;0.8777;ns
+mean.e2t;33.9 ñ 9.7;32.5 ñ 12.8;38.2 ñ 10.5;12.9 ñ 3.4;Kruskal-Wallis rank sum test;4.888599543;0.1801;ns;12;17;18;14;;;Total (min);236.4 ñ 25.9;276.6 ñ 21.5;205 ñ 22.5;281 ñ 22.1;0.0521;ns
+occ.e2s;92%;71%;89%;67%;Pearson's Chi-squared test;4.326787125;0.2283;ns;12;17;18;15;;Salivation (E1);Latency (min);127.5 ñ 16.9;113.5 ñ 17.6;125.9 ñ 22.7;103.2 ñ 21.2;0.716;ns
+lat.e2s;177.1 ñ 32.4;275.1 ñ 39.7;262.7 ñ 31.9;282.4 ñ 42.4;Kruskal-Wallis rank sum test;3.853926809;0.2777;ns;12;17;18;15;;;Number of events ;10.3 ñ 3;10.7 ñ 1.3;10.7 ñ 1.5;13.5 ñ 1.6;0.2845;ns
+num.e1;10.3 ñ 3;10.7 ñ 1.3;10.7 ñ 1.5;13.5 ñ 1.6;Kruskal-Wallis rank sum test;3.79493687;0.2845;ns;12;17;18;15;;;Total duration (min);29.8 ñ 9.8;17.8 ñ 4.3;25.3 ñ 7;17.8 ñ 2.5;0.9141;ns
+num.e1l;2.2 ñ 0.5;2.5 ñ 0.3;1.9 ñ 0.4;3.2 ñ 0.6;Kruskal-Wallis rank sum test;3.667680029;0.2997;ns;12;17;18;15;;;Mean duration (min);3.1 ñ 0.9;1.5 ñ 0.2;2.6 ñ 0.7;1.5 ñ 0.2;0.8158;ns
+mean.e2;31.8 ñ 9.7;32 ñ 12.8;36.5 ñ 10.3;12.5 ñ 3.4;Kruskal-Wallis rank sum test;3.651360491;0.3017;ns;12;17;18;14;;;Max duration (min);10.4 ñ 3.8;4.6 ñ 0.9;9 ñ 2.4;5.7 ñ 1.4;0.9636;ns
+num.e1f;2.9 ñ 0.6;3.2 ñ 0.4;3.2 ñ 0.5;4.4 ñ 0.7;Kruskal-Wallis rank sum test;3.21021991;0.3603;ns;12;17;18;15;;;Proportion of phloem (%);19.3 ñ 5.4;17.8 ñ 4.4;14.6 ñ 3.5;14.3 ñ 3.1;0.9294;ns
+occ.e2;100%;100%;100%;93%;Pearson's Chi-squared test;3.184699454;0.364;ns;12;17;18;15;;;Occurrence single events;58%;88%;72%;93%;0.0968;ns
+lat.e2sp;170.8 ñ 32.7;265.5 ñ 39.7;253.7 ñ 32.2;268.1 ñ 44.2;Kruskal-Wallis rank sum test;3.114860998;0.3743;ns;12;17;18;15;;;Number single events;1.8 ñ 0.8;3.2 ñ 0.6;2.7 ñ 0.8;3.5 ñ 0.7;0.13;ns
+num.e2s;2.4 ñ 0.6;1.4 ñ 0.3;2 ñ 0.4;1.5 ñ 0.4;Kruskal-Wallis rank sum test;3.019331012;0.3887;ns;12;17;18;15;;Phloem (E2);Occurance ;100%;100%;100%;93%;0.364;ns
+sum.e2s;112.2 ñ 26.1;94.6 ñ 30.8;134.1 ñ 31.1;74.2 ñ 22.8;Kruskal-Wallis rank sum test;2.789825253;0.4252;ns;12;17;18;15;;;Number of events ;6.8 ñ 2.4;5 ñ 0.8;6.1 ñ 1;6.7 ñ 1;0.557;ns
+lat.e1p;121.2 ñ 16;103.9 ñ 17.2;116.9 ñ 22.7;88.9 ñ 19.1;Kruskal-Wallis rank sum test;2.438004879;0.4866;ns;12;17;18;15;;;Total duration (min);126 ñ 27.7;102.7 ñ 30.4;145.7 ñ 30.7;88 ñ 22.7;0.5804;ns
+prop.e1f;7.2 ñ 3.3;7.5 ñ 1.5;4.9 ñ 1.2;9.3 ñ 2.9;Kruskal-Wallis rank sum test;2.116360953;0.5486;ns;12;17;18;15;;;Mean duration (min);31.8 ñ 9.7;32 ñ 12.8;36.5 ñ 10.3;12.5 ñ 3.4;0.3017;ns
+num.e2;6.8 ñ 2.4;5 ñ 0.8;6.1 ñ 1;6.7 ñ 1;Kruskal-Wallis rank sum test;2.07489368;0.557;ns;12;17;18;15;;;Max duration (min);78.8 ñ 18.8;69.4 ñ 21.5;85.6 ñ 18.2;50.1 ñ 13.1;0.6135;ns
+sum.f;13.6 ñ 11.3;18 ñ 10.6;30.8 ñ 11.5;13.4 ñ 7.7;Kruskal-Wallis rank sum test;2.030817286;0.566;ns;12;17;18;15;;E2 sustained;Occurance;92%;71%;89%;67%;0.2283;ns
+sum.e1f;4.3 ñ 1.1;4 ñ 0.7;3.4 ñ 0.5;4.6 ñ 0.7;Kruskal-Wallis rank sum test;1.97760208;0.5771;ns;12;17;18;15;;;Number of events;2.4 ñ 0.6;1.4 ñ 0.3;2 ñ 0.4;1.5 ñ 0.4;0.3887;ns
+sum.e2;126 ñ 27.7;102.7 ñ 30.4;145.7 ñ 30.7;88 ñ 22.7;Kruskal-Wallis rank sum test;1.961611598;0.5804;ns;12;17;18;15;;;Total duration (min);112.2 ñ 26.1;94.6 ñ 30.8;134.1 ñ 31.1;74.2 ñ 22.8;0.4252;ns
+prop.e1m;7.8 ñ 3.1;4.7 ñ 2.2;5.8 ñ 2.8;1.8 ñ 0.7;Kruskal-Wallis rank sum test;1.950616911;0.5827;ns;12;17;18;15;;Penetration difficulties (F);Occurance;25%;29%;44%;27%;0.6171;ns
+prop.e1l;4.3 ñ 2.6;5.5 ñ 2.1;3.9 ñ 1.5;3.1 ñ 0.9;Kruskal-Wallis rank sum test;1.934859859;0.586;ns;12;17;18;15;;;Total duration (min);13.6 ñ 11.3;18 ñ 10.6;30.8 ñ 11.5;13.4 ñ 7.7;0.566;ns
+num.f;0.6 ñ 0.4;0.4 ñ 0.2;0.8 ñ 0.3;0.3 ñ 0.2;Kruskal-Wallis rank sum test;1.872376766;0.5993;ns;12;17;18;15;;Xylem ingestion (G);Occurance;42%;47%;44%;53%;0.9351;ns
+max.e2;78.8 ñ 18.8;69.4 ñ 21.5;85.6 ñ 18.2;50.1 ñ 13.1;Kruskal-Wallis rank sum test;1.806661216;0.6135;ns;12;17;18;14;;;Total duration (min);20.8 ñ 9.2;17.7 ñ 6.7;20.8 ñ 8.4;25.8 ñ 9.5;0.9345;ns
+occ.f;25%;29%;44%;27%;Pearson's Chi-squared test;1.790194522;0.6171;ns;12;17;18;15;;;;;;;;;
+sum.e1m;17.9 ñ 9.3;4 ñ 1.6;13.3 ñ 5.9;3.2 ñ 1.6;Kruskal-Wallis rank sum test;1.780842895;0.6191;ns;12;17;18;15;;;;;;;;;
+mean.g;33.5 ñ 9.1;23 ñ 4.2;24.7 ñ 8;35.1 ñ 8.4;Kruskal-Wallis rank sum test;1.628275862;0.653;ns;5;8;8;8;;;;;;;;;
+mean.e2st;59.6 ñ 11.5;Inf ñ NaN;Inf ñ NaN;Inf ñ NaN;Kruskal-Wallis rank sum test;1.596543637;0.6602;ns;11;15;17;11;;;;;;;;;
+mean.c;8.7 ñ 1.4;11.9 ñ 2.9;9.6 ñ 1.6;9.6 ñ 1;Kruskal-Wallis rank sum test;1.470888427;0.689;ns;12;17;18;15;;;;;;;;;
+lat.e1;127.5 ñ 16.9;113.5 ñ 17.6;125.9 ñ 22.7;103.2 ñ 21.2;Kruskal-Wallis rank sum test;1.355422025;0.716;ns;12;17;18;15;;;;;;;;;
+lat.c;6.3 ñ 2.2;9.6 ñ 3.8;9 ñ 2.4;14.3 ñ 6.3;Kruskal-Wallis rank sum test;1.17449374;0.7591;ns;12;17;18;15;;;;;;;;;
+lat.w11p;473.7 ñ 2.2;470.4 ñ 3.8;471 ñ 2.4;465.7 ñ 6.3;Kruskal-Wallis rank sum test;1.17449374;0.7591;ns;12;17;18;15;;;;;;;;;
+lat.w12p;473.7 ñ 2.2;470.4 ñ 3.8;471 ñ 2.4;465.7 ñ 6.3;Kruskal-Wallis rank sum test;1.17449374;0.7591;ns;12;17;18;15;;;;;;;;;
+sum.e1l;3 ñ 1.4;3.3 ñ 1.4;3 ñ 1.1;2.3 ñ 0.8;Kruskal-Wallis rank sum test;1.109073953;0.7749;ns;12;17;18;15;;;;;;;;;
+num.css;8.4 ñ 2.4;5.2 ñ 1.1;7.6 ñ 1.7;8.2 ñ 2.9;Kruskal-Wallis rank sum test;1.089889061;0.7795;ns;12;17;18;15;;;;;;;;;
+mean.e1;3.1 ñ 0.9;1.5 ñ 0.2;2.6 ñ 0.7;1.5 ñ 0.2;Kruskal-Wallis rank sum test;0.93979599;0.8158;ns;12;17;18;15;;;;;;;;;
+sum.np;53.3 ñ 14.2;47.1 ñ 6.5;52 ñ 10.7;54 ñ 7.2;Kruskal-Wallis rank sum test;0.898432778;0.8258;ns;12;17;18;15;;;;;;;;;
+lat.e2p;136.3 ñ 17.7;143.3 ñ 26;143.7 ñ 23.1;133.3 ñ 30.8;Kruskal-Wallis rank sum test;0.848206379;0.8379;ns;12;17;18;15;;;;;;;;;
+num.cs;19 ñ 3.8;15.6 ñ 3;17.7 ñ 3.6;17 ñ 4.5;Kruskal-Wallis rank sum test;0.680775241;0.8777;ns;12;17;18;15;;;;;;;;;
+mean.e2s;54.4 ñ 11.8;71.9 ñ 20.2;76.4 ñ 16.2;45.3 ñ 6.6;Kruskal-Wallis rank sum test;0.641884972;0.8868;ns;11;12;16;10;;;;;;;;;
+sum.e1;29.8 ñ 9.8;17.8 ñ 4.3;25.3 ñ 7;17.8 ñ 2.5;Kruskal-Wallis rank sum test;0.521856771;0.9141;ns;12;17;18;15;;;;;;;;;
+num.e1m;3.4 ñ 1.9;1.8 ñ 0.6;2.8 ñ 0.9;2.3 ñ 0.7;Kruskal-Wallis rank sum test;0.513189908;0.916;ns;12;17;18;15;;;;;;;;;
+num.c;33.7 ñ 5.6;35.2 ñ 4.5;32.6 ñ 5.6;37 ñ 6.3;Kruskal-Wallis rank sum test;0.472416372;0.9249;ns;12;17;18;15;;;;;;;;;
+prop.e1;19.3 ñ 5.4;17.8 ñ 4.4;14.6 ñ 3.5;14.3 ñ 3.1;Kruskal-Wallis rank sum test;0.451521541;0.9294;ns;12;17;18;15;;;;;;;;;
+lat.e2;142.6 ñ 18.1;152.9 ñ 26.2;152.7 ñ 22.5;147.6 ñ 31.6;Kruskal-Wallis rank sum test;0.428531269;0.9343;ns;12;17;18;15;;;;;;;;;
+sum.g;20.8 ñ 9.2;17.7 ñ 6.7;20.8 ñ 8.4;25.8 ñ 9.5;Kruskal-Wallis rank sum test;0.427369802;0.9345;ns;12;17;18;15;;;;;;;;;
+occ.g;42%;47%;44%;53%;Pearson's Chi-squared test;0.424749182;0.9351;ns;12;17;18;15;;;;;;;;;
+max.e1;10.4 ñ 3.8;4.6 ñ 0.9;9 ñ 2.4;5.7 ñ 1.4;Kruskal-Wallis rank sum test;0.280668253;0.9636;ns;12;17;18;15;;;;;;;;;
+num.g;0.8 ñ 0.3;0.7 ñ 0.2;0.9 ñ 0.3;0.8 ñ 0.2;Kruskal-Wallis rank sum test;0.189060668;0.9793;ns;12;17;18;15;;;;;;;;;
+mean.f;52.8 ñ 42.3;37.8 ñ 14.7;51.3 ñ 16.8;44.1 ñ 21.5;Kruskal-Wallis rank sum test;0.111666667;0.9904;ns;3;5;8;4;;;;;;;;;
+mean.pd;NA ñ NA;NA ñ NA;NA ñ NA;NA ñ NA;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+mean.w11;NA ñ NA;NA ñ NA;NA ñ NA;NA ñ NA;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+mean.w12;NA ñ NA;NA ñ NA;NA ñ NA;NA ñ NA;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+num.pd;NA ñ NA;NA ñ NA;NA ñ NA;NA ñ NA;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+num.w11;0 ñ 0;0 ñ 0;0 ñ 0;0 ñ 0;Kruskal-Wallis rank sum test;NA;NA;NA;12;17;18;15;;;;;;;;;
+num.w12;0 ñ 0;0 ñ 0;0 ñ 0;0 ñ 0;Kruskal-Wallis rank sum test;NA;NA;NA;12;17;18;15;;;;;;;;;
+occ.e1;100%;100%;100%;100%;Pearson's Chi-squared test;NA;NA;NA;12;17;18;15;;;;;;;;;
+occ.pd;0%;0%;0%;0%;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+occ.w11;0%;0%;0%;0%;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+occ.w12;0%;0%;0%;0%;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+rate.pd;NA ñ NA;NA ñ NA;NA ñ NA;NA ñ NA;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+sum.pd;NA ñ NA;NA ñ NA;NA ñ NA;NA ñ NA;NA;NA;NA;NA;NA;NA;NA;NA;;;;;;;;;
+sum.w11;0 ñ 0;0 ñ 0;0 ñ 0;0 ñ 0;Kruskal-Wallis rank sum test;NA;NA;NA;12;17;18;15;;;;;;;;;
+sum.w12;0 ñ 0;0 ñ 0;0 ñ 0;0 ñ 0;Kruskal-Wallis rank sum test;NA;NA;NA;12;17;18;15;;;;;;;;;

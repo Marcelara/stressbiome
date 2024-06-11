@@ -1,0 +1,330 @@
+# Loading packages
+
+```{r loading packages, echo=TRUE}
+
+#Set working directory to project directory 
+setwd("./")
+getwd() #ok
+
+#data
+library(knitr)
+library(dplyr)
+library(tibble)
+library(readxl)
+
+#plotting
+library(ggplot2)
+library(ggpubr)
+library(rempsyc) #tables
+
+#analysis
+library(pscl)
+library(nlme)
+library(lme4)
+library(lmerTest)
+
+```
+
+#settings for plots
+```{r}
+
+theme_set(theme_bw())
+color_stress <- c("#BFBFBF", "#4472C4")
+
+# Set default axis looks
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
+                                               face = "bold", angle=0, hjust=0.5))+ #text in X
+  theme(axis.text.y = element_text(colour = "black", size = 9, face = "bold"))+ #text in y
+  theme(axis.title=element_text(size=11, face = "bold"))+ #all texts
+  theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)))+
+ theme(panel.grid.major = element_blank(), #no grid
+        panel.grid.minor = element_blank()) #no grid
+  theme(legend.position="none")+ #no legend
+
+```
+
+#Loading data
+
+```{r}
+
+#aphid population and plant performance
+aphid <- read_xlsx("./plant_data/raw_data/EPG/Aphid_population_adjusted.xlsx")
+plant <- read_xlsx("./plant_data/raw_data/EPG/Plant performance.xlsx")
+
+#EPG data - time 
+br_time <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_timebins_0-8h.csv", header=TRUE)
+bk_time <- read.csv("./epg_data/Kimmeridge comparison 8 hours/Kimmeridge_Comparison_8_hours_timebins_0-8h.csv", header=TRUE)
+
+
+```
+
+#cleaning
+```{r}
+#remove 'file' column
+br_time <- as.data.frame(br_time)
+br_time[2] <- NULL
+br_time <- br_time %>% mutate(plant_species="Bole_Riv")
+
+bk_time <- as.data.frame(bk_time)
+bk_time[2] <- NULL
+bk_time <- bk_time %>% mutate(plant_species="Bole_Kim")
+
+#merge into a single df 
+time <- rbind(br_time, bk_time)
+
+#change to factors
+str(time)
+time$id_rec <- as.factor(time$id_rec)
+time$group <- as.factor(time$group)
+time$wave <- as.factor(time$wave)
+time$wavename <- as.factor(time$wavename)
+
+#check
+head(time)
+str(time)
+
+```
+
+#Plots
+
+## Time plots
+```{r}
+#Time spent on Phloem feeding & Pathway
+levels(time$wavename)
+levels(time$group)
+
+#make a summary df only selecting for phloem feeding and pathway 
+summary <- time %>%  
+           filter(wavename %in% c("phloem feeding", "pathway")) %>% 
+           group_by(plant_species, wavename, hour, group) %>%
+           summarise(mean_time=mean(perc),
+                     sd=sd(perc),
+                     se=std.error(perc)) #from plotrix::std.error()
+
+#plot it
+`%!in%` <- Negate(`%in%`)
+
+#keep only first 6 hours 
+summary <- summary %>% 
+           filter(hour %!in% c("7", "8")) 
+# Rivera ====
+## Pathway 
+riv_pathway <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == "pathway"),
+                   aes(x=hour, y=mean_time, color=group))+
+         geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
+         geom_line(stat="identity", linewidth=0.8)+
+         geom_point(size=2.5)+
+         scale_color_manual(values= c("#7D7D7D", "#4472C4"))+
+         ylim(0,80)+
+         axis_looks+
+         labs(y="Time in pathway (%)", x="Time (h)")
+
+ggsave(
+  filename = "time_Bole_Riv_pathway.svg",
+  plot = riv_pathway,
+  path = "./Plots/05_EPG",
+  scale = 1.8,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+riv_phloem <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == "phloem feeding"),
+                   aes(x=hour, y=mean_time, color=group))+
+         geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
+         geom_line(stat="identity", linewidth=0.8)+
+         geom_point(size=2.5)+
+         scale_color_manual(values= c("#7D7D7D", "#4472C4"))+
+         ylim(0,60)+
+         axis_looks+
+         labs(y="Time phloem feeding (%)", x="Time (h)")
+
+ggsave(
+  filename = "time_Bole_Riv_phloem.svg",
+  plot = riv_phloem,
+  path = "./Plots/05_EPG",
+  scale = 1.8,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)
+  
+
+# Kimmeridge ====
+## Pathway 
+kim_pathway <- ggplot(subset(summary, plant_species == "Bole_Kim" & wavename == "pathway"),
+                   aes(x=hour, y=mean_time, color=group))+
+         geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
+         geom_line(stat="identity", linewidth=0.8)+
+         geom_point(size=2.5)+
+         scale_color_manual(values= c("#7D7D7D", "#4472C4"))+
+         ylim(0,80)+
+         axis_looks+
+         labs(y="Time in pathway (%)", x="Time (h)")
+
+ggsave(
+  filename = "time_Bole_Kim_pathway.svg",
+  plot = kim_pathway,
+  path = "./Plots/05_EPG",
+  scale = 1.8,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+kim_phloem <- ggplot(subset(summary, plant_species == "Bole_Kim" & wavename == "phloem feeding"),
+                   aes(x=hour, y=mean_time, color=group))+
+         geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
+         geom_line(stat="identity", linewidth=0.8)+
+         geom_point(size=2.5)+
+         scale_color_manual(values= c("#7D7D7D", "#4472C4"))+
+         ylim(0,60)+
+         axis_looks+
+         labs(y="Time phloem feeding (%)", x="Time (h)")
+
+ggsave(
+  filename = "time_Bole_Kim_phloem.svg",
+  plot = kim_phloem,
+  path = "./Plots/05_EPG",
+  scale = 1.8,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+
+
+#clean
+rm(br_time, bk_time, riv_pathway, riv_phloem, kim_pathway, kim_phloem)
+```
+
+## Aphid plot
+```{r}
+#call df for aphid population
+aphid
+str(aphid)
+aphid$Plant_ID <- as.factor(aphid$Plant_ID)
+aphid$Batch <- as.factor(aphid$Batch)
+aphid$Time <- as.factor(aphid$Time)
+aphid$Soil_stress <- as.factor(aphid$Soil_stress)
+aphid$Soil_species <- as.factor(aphid$Soil_species)
+aphid$Soil_treatment <- as.factor(aphid$Soil_treatment)
+
+#plot aphid population boxplots
+
+# Rivera ====
+riv_aphids <- ggplot(subset(aphid, Soil_species == "Riv"),
+                   aes(x=Soil_stress, y=aphids_14dpi, fill=Soil_stress))+
+         geom_boxplot(mapping = aes(fill= Soil_stress),
+                      position = position_dodge(width = 0.8), lwd=0.8)+
+         geom_jitter(subset(aphid, Soil_species == "Riv"),
+              mapping = (aes(x=Soil_stress, y=aphids_14dpi, fill = Soil_stress)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+         scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
+         scale_x_discrete(labels=c("Ctr" = "Control-inocula", "SA" = "SA-inocula"))+
+         axis_looks+
+         labs(y="Number of M. persicae aphids 14dpi", x="")
+
+ggsave(
+  filename = "aphids_Bole_Riv.svg",
+  plot = riv_aphids,
+  path = "./Plots/05_EPG",
+  scale = 2,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)         
+         
+# Kimmeridge ====
+kim_aphids <- ggplot(subset(aphid, Soil_species == "Kim"),
+                   aes(x=Soil_stress, y=aphids_14dpi, fill=Soil_stress))+
+         geom_boxplot(mapping = aes(fill= Soil_stress),
+                      position = position_dodge(width = 0.8), lwd=0.8)+
+         geom_jitter(subset(aphid, Soil_species == "Kim"),
+              mapping = (aes(x=Soil_stress, y=aphids_14dpi, fill = Soil_stress)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+         scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
+         scale_x_discrete(labels=c("Ctr" = "Control-inocula", "SA" = "SA-inocula"))+
+         axis_looks+
+         labs(y="Number of M. persicae aphids 14dpi", x="")
+
+ggsave(
+  filename = "aphids_Bole_Kim.svg",
+  plot = kim_aphids,
+  path = "./Plots/05_EPG",
+  scale = 2,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)         
+
+
+
+```
+
+## Plant biomass plot
+```{r}
+plant
+str(plant)
+plant$Plant_ID <- as.factor(plant$Plant_ID)
+plant$Batch <- as.factor(plant$Batch)
+plant$Soil_stress <- as.factor(plant$Soil_stress)
+plant$Soil_species <- as.factor(plant$Soil_species)
+plant$Soil_treatment <- as.factor(plant$Soil_treatment)
+
+#plot plant biomass boxplots
+
+# Rivera ====
+riv_shoot <- ggplot(subset(plant, Soil_species == "Bole_Riv"),
+                   aes(x=Soil_stress, y=`Shoot weight (mg)`, fill=Soil_stress))+
+         geom_boxplot(mapping = aes(fill= Soil_stress),
+                      position = position_dodge(width = 0.8), lwd=0.8)+
+         geom_jitter(subset(plant, Soil_species == "Bole_Riv"),
+              mapping = (aes(x=Soil_stress, y=`Shoot weight (mg)`, fill = Soil_stress)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+         scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
+         scale_x_discrete(labels=c("Ctr" = "Control-inocula", "SA" = "SA-inocula"))+
+         axis_looks+
+         labs(y="Shoot biomass (mg)", x="")
+
+ggsave(
+  filename = "biomass_Bole_Riv.svg",
+  plot = riv_shoot,
+  path = "./Plots/05_EPG",
+  scale = 2,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)         
+         
+# Kimmeridge ====
+kim_shoot <- ggplot(subset(plant, Soil_species == "Bole_Kim"),
+                   aes(x=Soil_stress, y=`Shoot weight (mg)`, fill=Soil_stress))+
+         geom_boxplot(mapping = aes(fill= Soil_stress),
+                      position = position_dodge(width = 0.8), lwd=0.8)+
+         geom_jitter(subset(plant, Soil_species == "Bole_Kim"),
+              mapping = (aes(x=Soil_stress, y=`Shoot weight (mg)`, fill = Soil_stress)),
+              shape = 21, size = 1.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+         scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
+         scale_x_discrete(labels=c("Ctr" = "Control-inocula", "SA" = "SA-inocula"))+
+         axis_looks+
+         labs(y="Shoot biomass (mg)", x="")
+
+ggsave(
+  filename = "biomass_Bole_Kim.svg",
+  plot = kim_shoot,
+  path = "./Plots/05_EPG",
+  scale = 2,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300)
+
+
+```
+
