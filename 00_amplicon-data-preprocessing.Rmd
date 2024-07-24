@@ -47,7 +47,7 @@ ggplot2::theme_set(theme_bw())
 ```{r 16S otu table}
 
 #1. Load OTU table
-otu <- otu_table(object = read.table(file = "./Data/16S/seqtab_final_16S.txt", 
+otu <- otu_table(object = read.table(file = "./amplicon_data/16S_2/seqtab_final.txt", 
                                               header = TRUE,
                                               row.names = 1, # first column has row names (ASV names)
                                               check.names = FALSE), # prevents "X" to be added to column names
@@ -60,6 +60,9 @@ y <- gsub(".*\\.", "", x) #removing everything that is before the last point htt
 #replace
 sample_names(otu) <- y
 
+#check
+head(otu)
+
 #clean 
 rm(x, y)
 
@@ -70,7 +73,7 @@ rm(x, y)
 ```{r 16S taxonomy table}
 
 #2. Load taxonomy table
-taxtab <-read.table(file = "./Data/16S/taxonomy_16S.tsv", 
+taxtab <-read.table(file = "./amplicon_data/16S_2/taxonomy.tsv", 
                                header = TRUE,
                                sep = "\t",
                                row.names = 1, # first column has row names (ASV names)
@@ -98,7 +101,7 @@ taxtab<-tax_table(object = as.matrix(taxtab))
 ```{r 16s refseq}
 
 #3. Load sequences 
-refseq <- refseq(physeq = Biostrings::readDNAStringSet(filepath = "./Data/16S/repset_16S.fasta", use.names = TRUE)) 
+refseq <- refseq(physeq = Biostrings::readDNAStringSet(filepath = "./amplicon_data/16s_2/repset.fasta", use.names = TRUE)) 
 
 head(taxa_names(refseq))
 
@@ -110,8 +113,8 @@ head(taxa_names(refseq))
 
 #4. Load phylogenetic tree 
 
-tree <- phy_tree(read.tree("./Data/16S/tree_16S.nwk"))
-
+tree <- phy_tree(read.tree("./amplicon_data/16s_2/tree.nwk"))
+tree
 
 ```
 
@@ -119,7 +122,7 @@ tree <- phy_tree(read.tree("./Data/16S/tree_16S.nwk"))
 
 ```{r metadata}
 #5. Load metadata 
-metadata_full <- read.table(file = "./Data/16S/Mapping_file_16S_Family_experiment.txt", 
+metadata_full <- read.table(file = "./amplicon_data/16s_2/Mapping_file_16S_Family_experiment.txt", 
                                                   header = TRUE,
                                                   sep = "\t",
                                                   row.names = 1, # first column has row names (ASV names)
@@ -131,24 +134,26 @@ str(metadata_full)
 metadata_full$Sp_speed <- as.factor(metadata_full$Sp_speed)
 metadata_full$sample_type <- as.factor(metadata_full$sample_type)
 metadata_full$Harvest_ID <- as.factor(metadata_full$Harvest_ID)
-levels(metadata_full$Sp_speed) #I need BraOle and S1
+levels(metadata_full$Sp_speed) #I need BraOle, Blank, S1, and M1 (S9 Kimmeridge for now not)
 levels(metadata_full$sample_type) #rhizoplane and Blank
 
 metadata_sel <- metadata_full %>% 
-            filter(Sp_speed %in% c("BraOle", "S1", "Blank"),
+            filter(Sp_speed %in% c("BraOle", "S1", "Blank", "M1"),
                    sample_type %in% c("rhizoplane", "Blank"),     #remove topsoil 
-                   !Harvest_ID %in% c("Blank_top1", "Blank_top2")) #remove leftover blanks 
+                   !Harvest_ID %in% c("Blank_top1", "Blank_top2"))%>% #remove leftover blanks 
+                   droplevels()
 
 #remove non-informative columns from Family Experiment
 metadata_sel <- metadata_sel[ , ! names(metadata_sel) %in% 
-                                  c("Block_row_column", "Sp_speed",
-                                    "Speed", "Block", "Rows", "Columns", "Plant_species_name",
+                                  c("Block_row_column",
+                                     "Rows", "Columns", 
                                     "plant_family", "Lineage", "Tribe", "Guest", 
                                     "Rainbow", "Flowering", "Rainbow.batch", "Missing",
                                     "Plate_postion", "Plate_row", "Plate_column", "Plate_name",
-                                    "GQ_submission_order", "Plate_place", "Shoot_.DryWeight")]
-          
+                                    "GQ_submission_order", "Plate_place")]
 
+levels(metadata_sel$Sp_speed) #ok
+          
 ```
 
 Adding experimental information to metadata
@@ -156,10 +161,10 @@ Adding experimental information to metadata
 ```{r 16s fixing metadata}
 
 #Add more metadata from experiment 
-phyto <- read_excel("./Data/CleanData_PSF.xlsx", sheet="cond_phytohormones",
+phyto <- read_excel("./plant_data/CleanData_PSF.xlsx", sheet="cond_phytohormones",
                     col_names = TRUE) 
 
-insects <- read_excel("./Data/CleanData_PSF.xlsx", sheet="cond_real_insects",
+insects <- read_excel("./plant_data/CleanData_PSF.xlsx", sheet="cond_real_insects",
                     col_names = TRUE) 
 #check colnames
 colnames(phyto)
@@ -204,6 +209,13 @@ metadata.merged$Stress <- as.factor(metadata.merged$Stress)
 metadata.merged$Experiment[metadata.merged$Harvest_ID == 'Blank_S1'] <- 'cond_phytohormones'
 metadata.merged$Experiment[metadata.merged$Harvest_ID == 'Blank_CH'] <- 'cond_real_insects'
 
+#Add EPG to Experiment for M1
+x <- addNA(metadata.merged$Experiment) #add NA's
+metadata.merged$Experiment <- x #replace
+metadata.merged$Experiment <- as.character(metadata.merged$Experiment) #make it a character
+metadata.merged$Experiment[is.na(metadata.merged$Experiment)] <- 'EPG' #change it
+metadata.merged$Experiment <- as.factor(metadata.merged$Experiment)
+
 #Add whether is a true sample or a blank sample
 metadata.merged <- metadata.merged %>% 
                    mutate(sample_or_blank = 
@@ -220,11 +232,11 @@ metadata <- metadata.merged %>%
 
 #Finally make it a sample_data object for phyloseq 
 metadata<- sample_data(metadata)
+head(metadata)
 
 #clean
 rm(metadata_full, metadata.cond,
-   metadata.merged, phyto, insects, metadata_sel)
-
+   metadata.merged, phyto, insects, metadata_sel, x)
 
 ```
 
@@ -236,20 +248,20 @@ Now, make phyloseq object
 
 #Merge to create phyloseq 
 ps_16S <- merge_phyloseq(metadata, otu, taxtab, refseq, tree)
-#ps_16S <- merge_phyloseq(metadata, otu, taxtab, refseq, tree)
 
 # change names from ASV to bASV, so they can be distinguished from fungal ASVs
 taxa_names(ps_16S)<- paste("b", taxa_names(ps_16S), sep = "")
 
 #add total number of reads 
 ps_16S@sam_data$total_reads <- sample_sums(ps_16S)
+hist(ps_16S@sam_data$total_reads) #some with less than 50,000, some with more than 250,000
 
 View(sample_data(ps_16S)) 
 
 ps_16S_raw <- ps_16S
 
 #save ps_16S
-save(ps_16S_raw, file = "./Results/phyloseq/ps_16S_raw.RData")
+save(ps_16S_raw, file = "./Results/amplicon/pre_procesing/ps_16S_raw.RData")
 
 #clean to not have it twice
 rm(tree, otu, taxtab, refseq, metadata, ps_16S)
@@ -263,7 +275,7 @@ ps_16S <- ps_16S_raw #save to compare
 
 #quick check on the number of reads 
 sums <- sample_sums(ps_16S)
-sums[order(sums)]#0,6,59! (something went wrong)
+sums[order(sums)]#0,6,60! (something went wrong)
 
 # Lowest total count:
 min(sums)
@@ -302,7 +314,7 @@ contamdf.freq <- isContaminant(ps_16S, method="frequency",
                                batch="Experiment")
 
 head(contamdf.freq)
-table(contamdf.freq$contaminant) #728 ASVs contaminants 
+table(contamdf.freq$contaminant) #773 ASVs contaminants 
 
 #check which taxa are contaminants
 ps_contam <- prune_taxa(contamdf.freq$contaminant, ps_16S)
@@ -311,7 +323,7 @@ sort(table(tax_table(ps_contam)[, 2]), decreasing=TRUE) #most of them proteobact
 
 plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
 
-ggsave("Bac.raw_contamASVs.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.raw_contamASVs.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #plot frequency of contaminants ASVs vs DNA concentration
@@ -323,9 +335,9 @@ plot_frequency(ps_16S, taxa_names(ps_16S)[sample(which(contamdf.freq$contaminant
 p_cont <- plot_bar(ps_contam, fill="Phylum")
 
 p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
-  ggtitle("samples with the highest abundance of contaminants (728 ASVs)")
+  ggtitle("samples with the highest abundance of contaminants (773 ASVs)")
 
-ggsave("Bac.raw_freq-contam_BySample.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.raw_freq-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #What proportion of our count data were removed as contaminants?
@@ -334,26 +346,27 @@ ps_noncontam <- prune_taxa(!contamdf.freq$contaminant, ps_16S)
 pre <- sum(sample_sums(ps_16S))
 post <- sum(sample_sums(ps_noncontam))
 
-(pre-post) / pre #only 0.014%
+(pre-post) / pre #only 0.026%
 
 #names of ASVs
 contaminants.freq <- rownames(subset(contamdf.freq, contaminant%in%c("TRUE")))
 
 ```
 
-* Most of the contaminant ASVs are proteobacteria. There's more abundance in the Phyto experiment compared to Insects 
+* Most of the contaminant ASVs are proteobacteria. There's more abundance in the Phyto experiment compared to Insects and EPG
 
 #### By Prevalence
 ```{r}
 # 2.Identify contaminants by 'Prevalence' in the Blank samples
 
 ps_16S@sam_data$is.neg <- ps_16S@sam_data$Stress=="Blank" #makes new column with 'TRUE' just for blanks
+
 contamdf.prev <- isContaminant(ps_16S, method="prevalence",
                                neg="is.neg",
                                threshold=0.5, #increased as recommended in Decontam
                                batch="Experiment") #keeps each sequencing run independently
 
-table(contamdf.prev$contaminant) #44 ASVs contaminants     
+table(contamdf.prev$contaminant) #61 ASVs contaminants     
 
 ## Check which taxa are contaminants:
 ps_contam <- prune_taxa(contamdf.prev$contaminant, ps_16S)
@@ -362,7 +375,7 @@ sort(table(tax_table(ps_contam)[, 2]), decreasing=TRUE) #proteobacteria as well 
 
 plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
 
-ggsave("Bac.raw_contamASVs_prevalence.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.raw_contamASVs_prevalence.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.4)
 
 #plot frequency of contaminant ASVs vs DNA concentration
@@ -374,9 +387,9 @@ plot_frequency(ps_16S, taxa_names(ps_16S)[sample(which(contamdf.prev$contaminant
 p_cont <- plot_bar(ps_contam, fill="Phylum")
 
 p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
-  ggtitle("samples with the highest abundance of contaminants by prevalence (44 ASVs)")
+  ggtitle("samples with the highest abundance of contaminants by prevalence (61 ASVs)")
 
-ggsave("Bac.raw_prev-contam_BySample.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.raw_prev-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #What proportion of our count data were removed as contaminants?
@@ -385,7 +398,7 @@ ps_noncontam <- prune_taxa(!contamdf.prev$contaminant, ps_16S)
 pre <- sum(sample_sums(ps_16S))
 post <- sum(sample_sums(ps_noncontam))
 
-(pre-post) / pre #only 0.013%
+(pre-post) / pre #only 0.028%
 
 #names of ASVs
 contaminants.prev <- rownames(subset(contamdf.prev, contaminant%in%c("TRUE")))
@@ -398,7 +411,11 @@ contaminants.prev <- rownames(subset(contamdf.prev, contaminant%in%c("TRUE")))
 
 
 ```{r}
-# 3. Finally combining both frequency and prevalence approaches
+
+#makes new column with 'TRUE' just for blanks
+ps_16S@sam_data$is.neg <- ps_16S@sam_data$Stress=="Blank" 
+
+# 3. Finallyps_16S# 3. Finally combining both frequency and prevalence approaches
 contamdf.both <- isContaminant(ps_16S,
                                method="combined",
                                neg="is.neg",
@@ -406,7 +423,7 @@ contamdf.both <- isContaminant(ps_16S,
                                threshold=0.2,
                                conc="Amplicon_concentation_ngul")
 
-table(contamdf.both$contaminant) #361 ASVs contaminants     
+table(contamdf.both$contaminant) #379 ASVs contaminants     
 
 ## Check which taxa are contaminants:
 ps_contam <- prune_taxa(contamdf.both$contaminant, ps_16S)
@@ -415,7 +432,7 @@ sort(table(tax_table(ps_contam)[, 2]), decreasing=TRUE)
 
 plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
 
-ggsave("Bac.raw_contamASVs_both.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.raw_contamASVs_both.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #plot frequency of contaminant ASVs vs DNA concentration
@@ -427,9 +444,9 @@ plot_frequency(ps_16S, taxa_names(ps_16S)[sample(which(contamdf.both$contaminant
 p_cont <- plot_bar(ps_contam, fill="Phylum")
 
 p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
-  ggtitle("samples with the highest abundance of contaminants by both (361 ASVs)")
+  ggtitle("samples with the highest abundance of contaminants by both (379 ASVs)")
 
-ggsave("Bac.raw_both-contam_BySample.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.raw_both-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #What proportion of reads were removed as contaminants?
@@ -443,10 +460,6 @@ post <- sum(sample_sums(ps_noncontam))
 #names of ASVs
 contaminants.both <- rownames(subset(contamdf.both, contaminant%in%c("TRUE")))
 
-#clean
-rm(contamdf.freq, contamdf.both, contamdf.prev, pre, post, sums,
-     p_cont, ps_contam, ps_noncontam, contaminants.both, contaminants.prev, contaminants.freq)
-  
 ```  
 
 * Same trend as for frequency and prevalence, but this seems a middle point
@@ -482,6 +495,10 @@ ps_16S@sam_data$libsize_after_decontam <- sample_sums(ps_16S)
 
 sort(ps_16S@sam_data$libsize_after_decontam) #2 samples with very low reads 
 
+#clean
+rm(contamdf.freq, contamdf.both, contamdf.prev, pre, post, sums,
+     p_cont, ps_contam, ps_noncontam, contaminants.prev, contaminants.freq, contaminants.both)
+
 ```
 
 
@@ -497,7 +514,7 @@ table(tax_table(ps_16S)[, 1]) #there's Archea & unassigned
 
 # keeps only Bacteria ASVs
 ps_16S <- subset_taxa(ps_16S, Kingdom=="d__Bacteria")
-ps_16S #37,322 taxa 
+ps_16S #64,238 taxa 
 
 #First, visualize plastid reads
 
@@ -506,7 +523,7 @@ p_Chloro <- plot_bar(subset_taxa(ps_16S, Order==" o__Chloroplast"), fill="Specie
 p_Chloro + facet_wrap(~Experiment, nrow=1, scales="free_x") +
   ggtitle("Chloroplast contamination")
 
-ggsave("Bac.Chloroplast-contam.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.Chloroplast-contam.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #mitochondria
@@ -514,7 +531,7 @@ p_Mito <- plot_bar(subset_taxa(ps_16S, Family==" f__Mitochondria"), fill="Specie
 p_Mito + facet_wrap(~Experiment, nrow=1, scales="free_x") +
   ggtitle("Mitochondria contamination")
 
-ggsave("Bac.Mitochondria-contam.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.Mitochondria-contam.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #clean 
@@ -522,6 +539,7 @@ rm(p_Chloro, p_Mito)
 
 ```
 * Phyto experiment has overall more plastid contamination than insect experiment (or maybe the same as they have less number of reads)
+*EPG experiment has a lot of plastid reads
 
 Now, remove plastid reads
 
@@ -561,9 +579,9 @@ ps_16S <- prune_taxa(taxa_to_keep, ps_16S)
 
 #compare 
 ps_16S_plastid #old ps
-ps_16S #new ps filtered without plastid reads (-354 ASVs) 20,565 ASVs
+ps_16S #new ps filtered without plastid reads (-354 ASVs) 61,949 ASVs
 
-mean(sample_sums(ps_16S))/mean(sample_sums(ps_16S_plastid)) #also in number of reads (~16% less) = 84% of reads kept
+mean(sample_sums(ps_16S))/mean(sample_sums(ps_16S_plastid)) #also in number of reads (~20% less) = 79% of reads kept
 
 #clean
 rm(Mitochondria_ps, Chloroplast_ps, host_plant_ps)
@@ -573,7 +591,7 @@ rm(Mitochondria_ps, Chloroplast_ps, host_plant_ps)
 * On average low host DNA contamination (16%), however for some samples host DNA contamination was more than 50% of the reads 
 
 
-### Low reads & non-informative ASVs
+### By sample reads & non-informative ASVs
 ```{r }
 
 ps_16S_filtering <- ps_16S #make another one so you can compare
@@ -585,9 +603,20 @@ sums[order(sums)]
 #add number of reads after plastid
 ps_16S@sam_data$libsize_after_plastid<-sample_sums(ps_16S)
 
+#see how many reads
+median <- median(ps_16S@sam_data$libsize_after_plastid) #79,162
+mean <- mean(ps_16S@sam_data$libsize_after_plastid) #85,408.93
+stdev <- sd(ps_16S@sam_data$libsize_after_plastid) #43,618.86
+
+#which will be the maximum of reads allowed if we keep mean +/- 2 stdev?
+mean + 2*stdev #172,646.7 ~ 173,000
+mean - 2*stdev #-1,828  
+
 #remove samples with low number of reads, removing those with less than 10,000 reads
+#and with more than 200,000 reads, roughly 2x stdev
 #as it jumps from 59 to 16,474 and continues to increase.
 ps_16S <- subset_samples(ps_16S, libsize_after_plastid > 10000) 
+ps_16S <- subset_samples(ps_16S, libsize_after_plastid < 200000) 
 
 #remove blanks
 ps_16S <- subset_samples(ps_16S, sample_or_blank != "blank") 
@@ -605,7 +634,7 @@ ps_16S<- prune_taxa(taxa = as.data.frame(refseq(ps_16S)@ranges)$width>380,
 prune_taxa(taxa_sums(ps_16S) >0, ps_16S)
 
 #let's see how many sequences were kept after this filtering
-sum(sample_sums(ps_16S))/sum(sample_sums(ps_16S_filtering))*100 # 99.11% of sequences kept
+sum(sample_sums(ps_16S))/sum(sample_sums(ps_16S_filtering))*100 # 86.6% of sequences kept
 
 #add column to sample_data
 ps_16S@sam_data$libsize_after_filtering <- sample_sums(ps_16S)
@@ -630,10 +659,10 @@ df_16S$Harvest_ID <- factor(df_16S$Harvest_ID, levels=order_harvestID)
 #see it 
 ggplot(df_16S, aes(pct_reads_kept, Harvest_ID, label = Harvest_ID)) +    
        geom_point(aes(colour = Experiment)) +
-       geom_text(aes(label = Harvest_ID), hjust = - 0.5)
-       #facet_wrap(~Experiment, scales="free_x")
+       geom_text(aes(label = Harvest_ID), hjust = - 0.5)+
+       facet_wrap(~Experiment, scales="free_x")
 
-ggsave("Bac.Plastid-percentage-contam.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.percentage_reads_kept.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
 
 #see how it changes with paired plot
@@ -642,54 +671,27 @@ ggsave("Bac.Plastid-percentage-contam.png", path = "./Results/Plots/Exploration"
 df_reads <- subset(df_16S, 
                    select= c("Harvest_ID", "Experiment", "total_reads", "libsize_after_decontam", "libsize_after_plastid", "libsize_after_filtering"))
 
-df_reads_insects <- df_reads %>%
-                  filter(Experiment == "cond_real_insects") %>% 
-                  select(-Experiment)
-
-df_reads <- df_reads_insects %>% 
-            pivot_longer(!Harvest_ID, names_to = "Steps",
+df_reads_long <- df_reads %>% 
+                 pivot_longer(!c(Harvest_ID,Experiment), names_to = "Steps",
                          values_to = "number_of_reads")
 
-df_reads$Steps <- factor(df_reads$Steps, 
+df_reads_long$Steps <- factor(df_reads_long$Steps, 
                    levels= c("total_reads", "libsize_after_decontam",
                              "libsize_after_plastid", "libsize_after_filtering"))
 
-ggplot(df_reads, aes(x=Steps, y=number_of_reads))+
+ggplot(df_reads_long, aes(x=Steps, y=number_of_reads))+
   geom_boxplot(aes(fill=Steps), alpha=0.2)+
   geom_line(aes(group = Harvest_ID)) + 
   geom_point(size = 2)+  
-  geom_label(aes(label= Harvest_ID), size=2.5)
+  geom_label(aes(label= Harvest_ID), size=2.5)+
+  facet_wrap(~Experiment)
 
-ggsave("Bac.reads-after-filteringsteps_Insects.png", path = "./Results/Plots/Exploration",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
-#Phyto
-df_reads <- subset(df_16S, 
-                   select= c("Harvest_ID", "Experiment", "total_reads", "libsize_after_decontam", "libsize_after_plastid", "libsize_after_filtering"))
-
-df_reads_phyto <- df_reads %>%
-                  filter(Experiment == "cond_phytohormones") %>% 
-                  select(-Experiment)
-
-df_reads <- df_reads_phyto %>% 
-            pivot_longer(!Harvest_ID, names_to = "Steps",
-                         values_to = "number_of_reads")
-
-df_reads$Steps <- factor(df_reads$Steps, 
-                   levels= c("total_reads", "libsize_after_decontam",
-                             "libsize_after_plastid", "libsize_after_filtering"))
-
-ggplot(df_reads, aes(x=Steps, y=number_of_reads))+
-  geom_boxplot(aes(fill=Steps), alpha=0.2)+
-  geom_line(aes(group = Harvest_ID)) + 
-  geom_point(size = 2)+  
-  geom_label(aes(label= Harvest_ID), size=2.5)
-
-ggsave("Bac.reads-after-filteringsteps_Phyto.png", path = "./Results/Plots/Exploration",
+ggsave("Bac.summary_reads-after-filteringsteps.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
 
 #clean
-rm(df_16S, df_reads, df_reads_insects, df_reads_phyto, all_taxa, filter,taxa_to_keep, sums,
-   plastid_taxa, order_harvestID)
+rm(df_16S, df_reads, all_taxa, filter,taxa_to_keep, sums,
+   plastid_taxa, order_harvestID, df_reads_long, mean, median, stdev)
 
 ```
 
@@ -699,21 +701,14 @@ rm(df_16S, df_reads, df_reads_insects, df_reads_phyto, all_taxa, filter,taxa_to_
 
 #last check of filtering steps
 
-ps_16S_raw #37366
-ps_16S_decontam #37,366
-ps_16S_plastid #20,919
-ps_16S_filtering #36,427
-ps_16S #35,996
-
-#see what's there
-plot_Bac <- plot_bar(ps_16S, fill= "Phylum")
-plot_Bac <- plot_Bac + facet_wrap(~Experiment, nrow=1, scales="free_x")
-
-ggsave("Bac.final_phylum.png", path = "./Results/Plots/Exploration",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
+ps_16S_raw #64,698
+ps_16S_decontam #64,698
+ps_16S_plastid #64,319
+ps_16S_filtering #61,949
+ps_16S #61,295
 
 #save ps object 
-save(ps_16S, file = "./Results/phyloseq/ps_16S.RData")
+save(ps_16S, file = "./Results/amplicon/pre_procesing/ps_16S.RData")
 
 #clean
 rm(ps_16S_raw, ps_16S_decontam, ps_16S_plastid, ps_16S_filtering, plot_Bac)
@@ -723,9 +718,6 @@ rm(ps_16S_raw, ps_16S_decontam, ps_16S_plastid, ps_16S_filtering, plot_Bac)
 Now it's ready to go to script 02 --> Alpha diversity! 
 
 **[MA] test later to add Chrat's filtering independently by experiment & by treatment**
-
-
-
 
 
 
