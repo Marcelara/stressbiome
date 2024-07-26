@@ -40,6 +40,9 @@ ggplot2::theme_set(theme_bw())
 
 ## Making phyloseq object  
 
+I recommend following these tutorial if you are new to phyloseq: https://www.gdc-docs.ethz.ch/MDA/handouts/MDA20_PhyloseqFormation_Mahendra_Mariadassou.pdf 
+
+
 ### Loading data
 
 #### OTU table
@@ -302,7 +305,9 @@ prune_taxa(taxa_sums(ps_16S ) >0, ps_16S)
 
 ### Decontam package Exploration
 
-Following: https://benjjneb.github.io/decontam/vignettes/decontam_intro.html & parts of Pedro's script
+Following: https://benjjneb.github.io/decontam/vignettes/decontam_intro.html, https://mcic-osu.github.io/2020-12-microbiomics-workshop/08-postASV-analysis.html & parts of Pedro's script
+
+The decontam package tests whether abundance of a certain taxa is not associated with DNA concentration. Because DNA concentration measurements are not very accurate and we want to remove possible contaminants we use a relaxed p value following the Microbiomics Workshop
 
 #### By Frequency
 ```{r}
@@ -713,13 +718,667 @@ save(ps_16S, file = "./Results/amplicon/pre_procesing/ps_16S.RData")
 #clean
 rm(ps_16S_raw, ps_16S_decontam, ps_16S_plastid, ps_16S_filtering, plot_Bac)
 
+
 ```
 
-Now it's ready to go to script 02 --> Alpha diversity! 
 
 **[MA] test later to add Chrat's filtering independently by experiment & by treatment**
 
 
+# ITS
+
+## Making phyloseq object  
+
+### Loading data
+
+#### OTU table
+```{r}
+
+#1. Load OTU table
+otu <- otu_table(object = read.table(file = "./amplicon_data/ITS_2/seqtab_final.txt", 
+                                              header = TRUE,
+                                              row.names = 1, # first column has row names (ASV names)
+                                              check.names = FALSE), # prevents "X" to be added to column names
+                                              taxa_are_rows = TRUE)
+
+#removing rest of sample names so it matches Harvest ID
+x <- sample_names(otu)
+y <- gsub(".*\\.", "", x) #removing everything that is before the last point https://statisticsglobe.com/r-remove-characters-before-or-after-point-in-string 
+
+#replace
+sample_names(otu) <- y
+
+#clean 
+rm(x, y)
+
+#check
+otu #now correct sample names 
+
+```
+
+#### Taxonomy table
+
+```{r}
+#2. Load taxonomy table
+taxtab <-read.table(file = "./amplicon_data/ITS_2/taxonomy.tsv", 
+                               header = TRUE,
+                               sep = "\t",
+                               row.names = 1, # first column has row names (ASV names)
+                               check.names = FALSE) # prevents "X" to be added to column names, such as X49_16S
+
+# adjusts number and name of columns
+taxtab <- separate(data = taxtab,
+                          col = Taxon,
+                          into =c("Kingdom", 
+                                       "Phylum", 
+                                       "Class", 
+                                       "Order", 
+                                       "Family",
+                                       "Genus", 
+                                       "Species"),
+                               sep = ";")
+head(taxtab) #check
+
+# saves taxtable as phyloseq object
+taxtab<-tax_table(object = as.matrix(taxtab))
+
+```
+
+The most abundant ASV is classified as NA at Phylum level
+
+
+#### Sequences
+
+```{r}
+
+#3. Load sequences 
+refseq <- refseq(physeq = Biostrings::readDNAStringSet(filepath = "./amplicon_data/ITS_2/repset.fasta",
+                                                       use.names = TRUE)) 
+
+#taxa_names(raw_bac_refseq)<-gsub(" .*", "", taxa_names(raw_bac_refseq)) # drops taxonomy from ASV names
+head(taxa_names(refseq)) #check
+```
+
+#### Phylogenetic tree
+
+```{r}
+
+#4. Load phylogenetic tree 
+tree <- phy_tree(read.tree("./amplicon_data/ITS_2/tree.nwk"))
+
+
+```
+
+#### Metadata
+
+```{r}
+
+#5. Load metadata from Family Experiment (sequencing-sample metadata)
+metadata_full <- read.table(file = "./amplicon_data/ITS_2/Mapping_file_ITS_Family_experiment.txt", 
+                                                  header = TRUE,
+                                                  sep = "\t",
+                                                  row.names = 1, # first column has row names (ASV names)
+                                                  check.names = FALSE)
+
+#check df 
+colnames(metadata_full)
+str(metadata_full)
+metadata_full$Sp_speed <- as.factor(metadata_full$Sp_speed)
+metadata_full$sample_type <- as.factor(metadata_full$sample_type)
+metadata_full$Harvest_ID <- as.factor(metadata_full$Harvest_ID)
+
+#keep only samples from PSF experiment
+levels(metadata_full$Sp_speed) #I need BraOle (Real herbivory) and S1 (Phytohormones)
+levels(metadata_full$sample_type) #I need rhizoplane and Blank
+
+metadata_sel <- metadata_full %>% 
+            filter(Sp_speed %in% c("BraOle", "S1", "Blank", "M1"),
+                   sample_type %in% c("rhizoplane", "Blank"),     #remove topsoil 
+                   !Harvest_ID %in% c("Blank_top1", "Blank_top2")) #remove leftover blanks 
+
+#remove non-informative columns from Family Experiment
+metadata_sel <- metadata_sel[ , ! names(metadata_sel) %in% 
+                                  c("Block_row_column", "Sp_speed",
+                                    "Speed", "Block", "Rows", "Columns", "Plant_species_name",
+                                    "plant_family", "Lineage", "Tribe", "Guest", 
+                                    "Rainbow", "Flowering", "Rainbow.batch", "Missing",
+                                    "Plate_postion", "Plate_row", "Plate_column", "Plate_name",
+                                    "GQ_submission_order", "Plate_place", "Shoot_.DryWeight")]
+dim(metadata_sel) #much smaller   
+
+```
+
+Now, let's add information from the PSF experiment itself into the metadata to be able to make correlations
+```{r}
+
+#Add more metadata from experiment 
+phyto <- read_excel("./plant_data/CleanData_PSF.xlsx", sheet="cond_phytohormones",
+                    col_names = TRUE) 
+
+insects <- read_excel("./plant_data/CleanData_PSF.xlsx", sheet="cond_real_insects",
+                    col_names = TRUE) 
+#check colnames
+colnames(phyto)
+colnames(insects)
+colnames(phyto)[3] <- 'ID_experiment' #change name so it matches
+
+#make it factors
+phyto[c(1:12, 14:18, 20:21)] <- lapply(phyto[c(1:12, 14:18, 20:21)], factor)
+str(phyto)
+insects[c(1:12, 15:20, 22:23)] <- lapply(insects[c(1:12, 15:20, 22:23)], factor)
+
+#make new column in both to add the ID number so it matches the microbiome data 
+phyto <- phyto %>% 
+           mutate(Harvest_ID = 
+                 case_when(
+                    Experiment == "cond_phytohormones" ~ Family_Harvest_ID))
+
+insects <- insects %>% 
+           mutate(Harvest_ID =
+                    case_when(
+                    Experiment == "cond_real_insects"~ ID_experiment))
+
+#adding _ch so it matches sample_id from microbiome data
+insects$Harvest_ID = paste(insects$Harvest_ID,"ch", sep = "_")
+
+#merge
+metadata.cond <- bind_rows(phyto, insects)
+
+#remove & re-arrange columns
+metadata.cond <- metadata.cond[ , ! names(metadata.cond) %in% 
+                                  c("Family_Species_code", "Family_Harvest_ID",
+                                    "Rainbow", "soil")]  
+#merge with ps metadata 
+metadata.merged <- dplyr::left_join(metadata_sel, metadata.cond, by="Harvest_ID") #join microbiome & experimental data
+
+#add rownames
+row.names(metadata.merged) <- paste(metadata.merged$Harvest_ID,"ITS", sep = "_")
+metadata.merged$root_weight <- as.numeric(metadata.merged$root_weight)
+metadata.merged$Stress <- as.factor(metadata.merged$Stress)
+
+#Add 'Experiment' to blanks 
+metadata.merged$Experiment[metadata.merged$Harvest_ID == 'Blank_S1'] <- 'cond_phytohormones'
+metadata.merged$Experiment[metadata.merged$Harvest_ID == 'Blank_CH'] <- 'cond_real_insects'
+
+#Add EPG to Experiment for M1
+x <- addNA(metadata.merged$Experiment) #add NA's
+metadata.merged$Experiment <- x #replace
+metadata.merged$Experiment <- as.character(metadata.merged$Experiment) #make it a character
+metadata.merged$Experiment[is.na(metadata.merged$Experiment)] <- 'EPG' #change it
+metadata.merged$Experiment <- as.factor(metadata.merged$Experiment)
+
+#Add whether is a true sample or a blank sample
+metadata.merged <- metadata.merged %>% 
+                   mutate(sample_or_blank = 
+                            case_when(
+                              Stress == "Blank" ~ "blank",
+                              TRUE ~ "sample"))
+#relocate
+metadata <- metadata.merged %>% 
+                  relocate(Target, Harvest_ID, Experiment, treated_with, plant_pathway_induced,
+                           herbivore, herbivory) %>%
+                  relocate(root_weight, .after=shoot_biomass) %>%
+                  relocate(where(is.numeric), .after=Stress) %>%
+                  relocate(ID_experiment, .after=Plate)  #this is the plant ID from Haris' data
+
+#Finally make it a sample_data object for phyloseq 
+metadata<- sample_data(metadata)
+
+#clean
+rm(metadata_full, metadata.cond, metadata.merged, phyto, insects, metadata_sel, x)
+
+```
+
+#### Final ps object 
+
+Now, make phyloseq object  
+
+```{r}
+
+#Merge to create phyloseq 
+ps_ITS <- merge_phyloseq(metadata, otu, taxtab, refseq, tree)
+
+# change names from ASV to fASV, so they can be distinguished from bacterial ASVs
+taxa_names(ps_ITS )<- paste("f", taxa_names(ps_ITS), sep = "")
+
+#add total number of reads 
+ps_ITS@sam_data$total_reads <- sample_sums(ps_ITS)
+
+View(sample_data(ps_ITS))
+
+ps_ITS_raw <- ps_ITS
+
+#save ps_ITS_raw
+save(ps_ITS_raw, file = "./Results/amplicon/pre_procesing/ps_ITS_raw.RData")
+
+#clean to not have it twice
+rm(tree, otu, taxtab, refseq, metadata)
+```
+
+```{r}
+
+#quick check on the number of reads 
+sums <- sample_sums(ps_ITS)
+sums[order(sums)]
+
+# Lowest total count:
+min(sums)
+
+# Sample with lowest counts:
+names(sums[order(sums)][1]) #makes sense 
+
+#see the correlation between number of reads and diversity of ASVs
+#rarecurve(t(otu_table(ps_ITS)), step=50, cex=0.5)
+
+# see it by experiment
+#plot_bar <- plot_bar(ps_ITS, x="Sample", facet_grid=~Experiment)
+
+#ggsave("Fun.raw_rarefaction.png", path = "./Plots/00_amplicon_preprocessing/",
+#         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+```
+
+Looks like all those samples that have very low reads also have low numbers of different ASVs and hence might be an artifact of the sequencing depth. These samples need to be removed. 
+
+More samples from the phytohormone experiments are low on reads compared to real insects.
+
+## Remove contaminants 
+
+### Decontam package Exploration
+
+#### By Frequency
+```{r}
+
+#First, checking if there's 0 in amplicon concentration, as decontam works with DNA concentration
+sort(sample_data(ps_ITS)$Amplicon_concentation_ngul) #no
+
+
+# 1.Identify contamination by 'frequency'
+contamdf.freq <- isContaminant(ps_ITS, method="frequency",
+                               conc="Amplicon_concentation_ngul",
+                               threshold=0.2,
+                               batch="Experiment")
+head(contamdf.freq)
+table(contamdf.freq$contaminant) #80 ASVs contaminants 
+which(contamdf.freq$contaminant) #at least not amongst the 10 most abundant 
+
+# Check which taxa are contaminants:
+ps_contam <- prune_taxa(contamdf.freq$contaminant, ps_ITS)
+tax_table(ps_contam) #lots of most abundant ASVs
+
+plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
+
+ggsave("Fun.raw_contamASVs.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+# Moreriellomycota and Ascomycota are detected as contaminants in both experiments, but at different abundances.
+
+#plot frequency of contaminant ASVs vs DNA concentration
+plot_frequency(ps_ITS, taxa_names(ps_ITS)[sample(which(contamdf.freq$contaminant),20)],
+               conc="Amplicon_concentation_ngul")+
+               xlab("DNA concentration (ngul)")
+
+ggsave("Fun.raw_freq-contam.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+#Which samples have the highest abundance of contaminants?
+p_cont <- plot_bar(ps_contam, fill="Phylum")
+
+p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
+  ggtitle("samples with the highest abundance of contaminants (XX ASVs)")
+
+ggsave("Fun.raw_freq-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+#What proportion of our count data were removed as contaminants?
+ps_noncontam <- prune_taxa(!contamdf.freq$contaminant, ps_ITS)
+
+pre <- sum(sample_sums(ps_ITS))
+post <- sum(sample_sums(ps_noncontam))
+
+(pre-post) / pre #24%!
+
+#names of ASVs
+contaminants.freq <- rownames(subset(contamdf.freq, contaminant%in%c("TRUE")))
+
+```
+
+The frequency plots show that indeed those ASVs selected as contaminants have higher frequency when DNA concentrations are lower (than when they are higher), which its a clear indication that its not a biological response but rather an artifact of the method.
+
+
+#### By Prevalence
+
+```{r}
+
+# 2.Identify contaminants by 'Prevalence' in the Blank samples
+
+ps_ITS@sam_data$is.neg <- ps_ITS@sam_data$Stress=="Blank" #makes new column with 'TRUE' just for blanks
+
+contamdf.prev <- isContaminant(ps_ITS, method="prevalence",
+                               neg="is.neg",
+                               threshold=0.5, #increased as recommended in Decontam
+                               batch="Experiment") #keeps each sequencing run independently
+
+table(contamdf.prev$contaminant) #49 ASVs contaminants     
+which(contamdf.prev$contaminant)
+which(contamdf.freq$contaminant) #compare with frequency --> Not the same ASVs, but quite some repeated
+
+## Check which taxa are contaminants:
+ps_contam <- prune_taxa(contamdf.prev$contaminant, ps_ITS)
+tax_table(ps_contam) #lots of most abundant ASVs
+
+plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
+
+ggsave("Fun.raw_contamASVs_prevalence.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+# Ascomycota & Morteriellomycota are detected as the predominant contaminant phylum in both experiments
+
+#plot frequency of contaminant ASVs vs DNA concentration
+plot_frequency(ps_ITS, taxa_names(ps_ITS)[sample(which(contamdf.prev$contaminant),20)],
+               conc="Amplicon_concentation_ngul")+
+               xlab("DNA concentration (ngul)")
+
+#Which samples have the highest abundance of contaminants?
+p_cont <- plot_bar(ps_contam, fill="Phylum")
+
+p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
+  ggtitle("samples with the highest abundance of contaminants by prevalence (31 ASVs)")
+
+ggsave("Fun.raw_prev-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+#What proportion of our count data were removed as contaminants?
+ps_noncontam <- prune_taxa(!contamdf.prev$contaminant, ps_ITS)
+
+pre <- sum(sample_sums(ps_ITS))
+post <- sum(sample_sums(ps_noncontam))
+
+(pre-post) / pre #21!%
+
+#names of ASVs
+contaminants.prev <- rownames(subset(contamdf.prev, contaminant%in%c("TRUE")))
+
+```
+
+#### Both
+```{r}
+
+ps_ITS@sam_data$is.neg <- ps_ITS@sam_data$Stress=="Blank" #makes new column with 'TRUE' just for blanks
+
+# 3. Finally combining both frequency and prevalence approaches
+contamdf.both <- isContaminant(ps_ITS,
+                               method="combined",
+                               neg="is.neg",
+                               batch="Experiment",
+                               threshold=0.2,
+                               conc="Amplicon_concentation_ngul")
+
+table(contamdf.both$contaminant) #49 ASVs contaminants     
+which(contamdf.both$contaminant)
+
+## Check which taxa are contaminants:
+ps_contam <- prune_taxa(contamdf.both$contaminant, ps_ITS)
+tax_table(ps_contam) #lots of most abundant ASVs
+
+plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
+
+ggsave("Fun.raw_contamASVs_both.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+# Ascomycota & Morteriellomycota are detected as the predominant contaminant phylum in both experiments. More contamination in the insect experiment. 
+
+#plot frequency of contaminant ASVs vs DNA concentration
+plot_frequency(ps_ITS, taxa_names(ps_ITS)[sample(which(contamdf.both$contaminant),20)],
+               conc="Amplicon_concentation_ngul")+
+               xlab("DNA concentration (ngul)")
+
+#Which samples have the highest abundance of contaminants?
+p_cont <- plot_bar(ps_contam, fill="Phylum")
+
+p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
+  ggtitle("samples with the highest abundance of contaminants by both (45 ASVs)")
+
+ggsave("Fun.raw_both-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+#What proportion of our count data were removed as contaminants?
+ps_noncontam <- prune_taxa(!contamdf.both$contaminant, ps_ITS)
+
+pre <- sum(sample_sums(ps_ITS))
+post <- sum(sample_sums(ps_noncontam))
+
+(pre-post) / pre #19%
+
+#names of ASVs
+contaminants.both <- rownames(subset(contamdf.both, contaminant%in%c("TRUE")))
+
+
+```  
+
+I consider losing between 20% and 24% of the reads seems like a lot, perhaps ITS data is different than 16S where only 0.07% of the reads were lost when using a combination of prevalence and frequency.
+
+Frequency plots (line 1,132) also seem a bit off as these ASVs have a lot of reads but not necessarily extremely more at low DNA concentrations. Therefore, I will skip the decontamination for fungi altogether.
+
+### Final step
+```{r}    
+
+#save contaminants list just to check it in the future if needed
+contaminants_list_ITS <- list(both=contaminants.both, frequency=contaminants.freq, prevalence=contaminants.prev)
+
+#save it
+save(contaminants_list_ITS, file = "./Results/amplicon/pre_procesing/contaminants_list_ITS.RData")
+
+#clean
+rm(df_metadata, p.libsiz, contamdf.freq, contamdf.both, contamdf.prev, ps.pa.neg.both, ps.pa.pos.both, 
+   ps.pa, ps.pa.both, ps.pa.pos, df.pa, df.pa.both, p.prev, p.reads, ps.pa.neg, contaminant_ASV, contaminants,
+   n_contaminants, p_cont, ps_contam, ps_noncontam, contaminants.both, contaminants.freq, contaminants.prev)
+
+```
 
 
 
+###skip
+```{r}
+ps_ITS_decontam <- ps_ITS #save it to compare
+
+#clean physeq object by removing contaminant ASVs, then remove blank sample 
+ps_ITS <- prune_taxa(!taxa_names(ps_ITS) %in% contaminants.both, ps_ITS) # keep out taxa from contaminants list
+
+#remove those ASVs with now 0 reads 
+prune_taxa(taxa_sums(ps_ITS ) >0, ps_ITS)
+
+#plot final ps to check if the condition is not matched
+set.seed(100)
+plot_frequency(seqtab = ps_ITS, 
+               taxa = sample(taxa_names(ps_ITS),20),
+               conc="Amplicon_concentation_ngul")+
+    #aes(color = libsize_after_filtering)+
+    #scale_color_viridis()+
+    ggtitle("Real ASVs") #looks good
+
+#check number of reads 
+plot(sort(sample_sums(ps_ITS))) #still some samples with very few reads 
+
+#make new column with this information
+ps_ITS@sam_data$libsize_after_decontam <- sample_sums(ps_ITS)
+
+sort(ps_ITS@sam_data$libsize_after_decontam) 
+
+#Blank phyto: 372 reads
+#Blank insects: 1,174 reads 
+
+```
+
+Follow this tutorial: https://web.stanford.edu/class/bios221/MicrobiomeWorkflowII.html#shiny-phyloseq for more torough tips on how to filter and preprocess data ([MA] not sure however if its still valid as it is from 2017 and perhaps worked more with OTUs than ASVs)
+
+
+## Filtering 
+
+https://mcic-osu.github.io/2020-12-microbiomics-workshop/08-postASV-analysis.html#Filter_samples
+
+https://joey711.github.io/phyloseq/preprocess.html 
+
+### Non-fungal ASVs
+```{r}
+
+#save it to compare
+ps_ITS_filtering <- ps_ITS #3,553 taxa
+
+#Add number of reads before filtering
+ps_ITS@sam_data$libsize_before_filtering <-sample_sums(ps_ITS)
+
+# see contamination of non-fungal ASVs
+table(tax_table(ps_ITS)[, 1]) #there's Protista, Rhizaria and Unassigned
+
+# keeps only Fungal ASVs
+ps_ITS <- subset_taxa(ps_ITS, Kingdom=="k__Fungi")
+ps_ITS #2,825 taxa 
+
+#Add number of reads before filtering
+ps_ITS@sam_data$libsize_after_nonFungi <-sample_sums(ps_ITS)
+
+#check
+pre <- sum(ps_ITS@sam_data$libsize_before_filtering)
+post <- sum(ps_ITS@sam_data$libsize_after_nonFungi)
+
+((pre-post)/pre)*100 #2.38% reads lost 
+
+```
+
+### By sample reads & non-informative ASVs
+```{r}
+
+#Filtering by number of reads
+
+#quickly check on the number of reads 
+sums[order(sample_sums(ps_ITS))] #647 to 179,000
+plot(sort(sample_sums(ps_ITS)))
+
+#see how many reads
+median <- median(ps_ITS@sam_data$libsize_after_nonFungi) #116,633
+mean <- mean(ps_ITS@sam_data$libsize_after_nonFungi) #102,041.2
+stdev <- sd(ps_ITS@sam_data$libsize_after_nonFungi) #46,387.28
+
+#which will be the maximum of reads allowed if we keep mean +/- 2 stdev?
+mean + 1*stdev #194,815.8 ~ 195,000
+mean - 1*stdev #9,266.685  ~ 9,500
+
+#remove samples with low number of reads, removing those with less than 9,500 reads
+#and with more than 195,000 reads, roughly 2x stdev
+ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi > 9500) 
+ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi < 195000) #125 samples left 
+
+#remove blanks
+ps_ITS <- subset_samples(ps_ITS, sample_or_blank != "blank") 
+
+#check number of reads 
+plot(sort(sample_sums(ps_ITS))) #looks a bit better, but still there are two samples with too low reads
+
+# 2_ITS and 117_ch_ITS, remove them;
+ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi > 50500) 
+
+#check final sequence lenght. ITS sequences smaller than 100bp should be discarded
+summary(ps_ITS@refseq@ranges@width)  
+sort(ps_ITS@refseq@ranges@width)
+
+ps_ITS<- prune_taxa(taxa = as.data.frame(refseq(ps_ITS)@ranges)$width>100,
+                       x = ps_ITS) #1 ASVs removed
+
+#remove those ASVs which now have 0 reads (after removing samples)
+ps_ITS <- prune_taxa(taxa_sums(ps_ITS ) >0, ps_ITS) #2,269 ASVs
+
+#add new library size after filtering
+ps_ITS@sam_data$libsize_after_filtering <- sample_sums(ps_ITS)
+plot(sort(ps_ITS@sam_data$libsize_after_filtering))
+
+#make new column with the percentage of how many reads were kept 
+ps_ITS@sam_data$pct_reads_kept <- ((ps_ITS@sam_data$libsize_after_filtering/ps_ITS@sam_data$libsize_before_filtering)*100)
+
+plot(sort(ps_ITS@sam_data$pct_reads_kept)) #lowest is 63%
+
+```
+
+Visualize it
+```{r}
+#make it a df to plot it 
+df_ITS <- data.frame(sample_data(ps_ITS))
+order_harvestID <- df_ITS$Harvest_ID
+
+#make Harvest ID a factor to have a better plot
+df_ITS$Harvest_ID <- factor(df_ITS$Harvest_ID, levels=order_harvestID)
+
+#see it 
+ggplot(df_ITS, aes(pct_reads_kept, Harvest_ID, label = Harvest_ID)) +    
+  geom_point(aes(colour = Experiment)) +
+  geom_text(aes(label = Harvest_ID), hjust = - 0.5)+
+  facet_wrap(~Experiment)
+
+ggsave("Fun.percentage_reads_kept.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+
+#make paired plot
+#first make df 
+df_reads <- subset(df_ITS, 
+                   select= c("Harvest_ID", "Experiment", "libsize_before_filtering", "libsize_after_nonFungi", "libsize_after_filtering"))
+
+df_reads_long <- df_reads %>% 
+                 pivot_longer(!c(Harvest_ID,Experiment), names_to = "Steps",
+                         values_to = "number_of_reads")
+
+df_reads_long$Steps <- factor(df_reads_long$Steps, 
+                   levels= c("libsize_before_filtering", "libsize_after_nonFungi",
+                             "libsize_after_filtering"))
+
+#plot it
+ggplot(df_reads_long, aes(x=Steps, y=number_of_reads))+
+  geom_boxplot(aes(fill=Steps), alpha=0.2)+
+  geom_line(aes(group = Harvest_ID)) + 
+  geom_point(size = 2)+  
+  geom_label(aes(label= Harvest_ID), size=2.5)+
+  facet_wrap(~Experiment)
+
+ggsave("Fun.summary_reads-after-filteringsteps.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+#clean
+rm(df_reads, df_reads_long)
+
+```
+
+```{r}
+
+#see what's there 
+plot_Fun <- plot_bar(ps_ITS, fill= "Phylum")
+plot_Fun <- plot_Fun + facet_wrap(~Experiment, nrow=1, scales="free_x")
+
+ggsave("Fun.final_phylum.png", path = "./Plots/00_amplicon_preprocessing/",
+         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
+
+#few ASVs with high abundance and no classification in Phylum
+
+#clean
+rm(plot_Fun)
+
+```
+
+## New ps
+
+```{r}
+
+#Final check of all ps throughout the filtering process
+
+ps_ITS_raw #3553 ASVs
+ps_ITS #2269 ASVs
+
+#save ps object 
+save(ps_ITS, file = "./Results/amplicon/pre_procesing/ps_ITS.RData")
+
+#clean
+rm(ps_ITS_cont, ps_ITS_un, df_metadata, df_ITS, contamdf.both, contaminant_ASV,ps_contam, ps_noncontam, post, pre, sums, contaminants, contaminants.freq, contaminants.prev, ps_ITS_filtering, ps_ITS, ps_ITS_raw,
+   contaminants_list_ITS, mean, median, order_harvestID, stdev)
+
+```
+
+Now it's ready to go to script 02 --> Alpha diversity! 
