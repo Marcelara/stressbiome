@@ -1160,6 +1160,7 @@ I consider losing between 20% and 24% of the reads seems like a lot, perhaps ITS
 
 Frequency plots (line 1,132) also seem a bit off as these ASVs have a lot of reads but not necessarily extremely more at low DNA concentrations. Therefore, I will skip the decontamination for fungi altogether.
 
+
 ### Final step
 ```{r}    
 
@@ -1499,6 +1500,80 @@ I still need to:
 *make the filtering per experiment (this will be independent according to the type of analysis)
 
 *Blast it with funGuild
+
+#FunGuild
+```{r}
+#try to read example table
+x <- read.table(file = "./amplicon_data/FunGuild/otu_table.txt", 
+                                                  header = TRUE,
+                                                  sep = "\t",
+                                                  row.names = 1, # first column has row names 
+                                                  check.names = FALSE)
+
+x #its a OTU table coupled with a column of taxonomy
+taxonomy <- x$taxonomy #there's one column named taxonomy with all the info
+
+```
+
+
+
+Following: https://readingradio.github.io/J.nigra.Rmds/soilfunguild_jnigra17_fa19_ajo.html
+
+```{r}
+
+#First, let's subset our ps object to the first 50 ASVs as a test
+top50 <- names(sort(taxa_sums(ps_ITS), decreasing = TRUE)[1:50])
+ps_ITS50 <- subset_taxa(ps_ITS, ASV %in% top50) #ok
+
+#first check the format of the OTU table
+#rows should be taxa names and columns sample names
+head(otu_table(ps_ITS50)) #ok
+otu <- as.data.frame(otu_table(ps_ITS50))
+head(otu)
+
+#Then check the taxonomy table
+head(tax_table(ps_ITS50)) #rows are ASVs and tax information is columns, ok
+tax <- as.data.frame(tax_table(ps_ITS50))
+tax <- tax[,-8:-9] #let's delete the confidence column and ASV for now
+colnames_tax <- colnames(tax)
+
+#make a new df in which everything is in a single column
+#https://www.r-bloggers.com/2022/07/convert-multiple-columns-into-a-single-column-tidyr-part4/
+taxonomy <- tax %>% 
+            select(all_of(colnames_tax))%>%
+            unite(col="taxonomy", sep=';')
+
+#now I need to add this taxonomy column to the otu table 
+otu_table_top50 <- cbind(otu, taxonomy)
+otu_table_top50$OTU_ID <- rownames(df)
+
+otu_table_top50 <- otu_table_top50 %>% 
+                   relocate(OTU_ID) #place it in column 1
+
+#save it as a table
+write.table(otu_table_top50, "amplicon_data/FunGuild/otu_table_top50.txt",
+            sep="\t",
+            row.names=FALSE,
+            col.names = TRUE,
+            quote = FALSE)
+
+```
+
+After running it in the shell terminal with the python script, let's see what we've got
+
+```{r}
+
+guild_table <-read.delim("amplicon_data/FunGuild/otu_table_top50.guilds.txt",
+                         header=TRUE,
+                         sep="\t",
+                         fill=TRUE,
+                         strip.white=TRUE)
+
+#looks good! now, let's do this but with the full ITS phyloseq
+
+```
+
+
 
 
 
