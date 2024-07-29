@@ -1361,10 +1361,126 @@ ggsave("Fun.final_phylum.png", path = "./Plots/00_amplicon_preprocessing/",
 #clean
 rm(plot_Fun)
 
+#clean
+rm(ps_ITS_cont, ps_ITS_un, df_metadata, df_ITS, contamdf.both, contaminant_ASV,ps_contam, ps_noncontam, post, pre, sums, contaminants, contaminants.freq, contaminants.prev, ps_ITS_filtering, 
+   contaminants_list_ITS, mean, median, order_harvestID, stdev)
+
+
+```
+
+
+## Adding taxonomy
+```{r}
+
+tax <- as.data.frame(tax_table(ps_ITS))
+which(is.na(tax$Phylum)) #234 ASVs are NA at Phylum level
+
+Phylum_NA <- rownames(tax)[which(is.na(tax$Phylum))] #get which ones 
+
+#make a copy
+ps_phylum <- ps_ITS 
+
+#add ASV as a column
+tax$ASV <- rownames(ps_phylum@tax_table)  
+#replace in ps 
+tax_table(ps_ITS) <- tax_table(object = as.matrix(tax))
+
+#Now, let's get the sequences
+ps_phylum <- subset_taxa(ps_ITS, ASV %in% Phylum_NA) #ok
+
+#save sequences 
+ps_phylum %>%
+refseq() %>%
+Biostrings::writeXStringSet("./Results/amplicon/pre_procesing/ITS_phylum_NA.fna",
+             append=FALSE,compress=FALSE,
+             compression_level=NA, format="fasta")
+
+#Intermezzo: to get only those that are more abundant (ASV1-100)
+x <- as.data.frame(Phylum_NA)
+number <- separate(x, col=Phylum_NA, into= c("NA", "Number") )
+
+x$Number <- number$Number
+str(x) #ok
+x$Number <- as.numeric(x$Number)
+
+#Get them in order
+x <- x[order(x$Number),]
+
+ASV_sel <- x[c(1:5),] #get below ASV100
+ASV_sel <- ASV_sel$Phylum_NA
+
+ps_sel <- subset_taxa(ps_phylum, ASV %in% ASV_sel)
+
+#save sequences of the most abundant ASVs (ASV 1-100) to blast them in NCBI 
+ps_sel %>%
+refseq() %>%
+Biostrings::writeXStringSet("./Results/amplicon/pre_procesing/ITS_phylum_NA_sel.fna",
+             append=FALSE,compress=FALSE,
+             compression_level=NA, format="fasta")
+
+```
+
+
+```{r}
+#Make taxonomy table a df so its easier to sort
+tax <- as.data.frame(tax)
+colnames <- colnames(tax)
+
+#get names of taxonomy to write exactly the same ones 
+unique(tax$Phylum)
+sort(unique(tax$Class))
+sort(unique(tax$Order))
+sort(unique(tax$Family))
+sort(unique(tax$Genus))
+sort(unique(tax$Species))
+
+#make one vector from each from the blast of NCBI
+#adding "NCBI" in the confidence column to trace them back if needed 
+
+#f_ASV1
+f_ASV1 <- c("k__Fungi","p__Olpidiomycota","c__Olpidiomycetes","o__Olpidiales","f__Olpidiaceae","g__Olpidium","s__Olpidium_brassicae","NCBI","fASV_1")
+
+#f_ASV27
+f_ASV27 <- c("k__Fungi","p__Mortierellomycota","c__Mortierellomycetes","o__Mortierellales","f__Mortierellaceae",NA,NA,"NCBI","fASV_27")
+
+#f_ASV80
+f_ASV80 <- c("k__Fungi","p__Mortierellomycota","c__Mortierellomycetes","o__Mortierellales","f__Mortierellaceae",NA,NA,"NCBI","fASV_80")
+
+#f_ASV81
+f_ASV81 <- c("k__Fungi","p__Basidiomycota","c__Ustilaginomycetes","o__Ustilaginales",NA,NA,NA,"NCBI","fASV_81")
+
+#f_ASV95
+f_ASV95 <- c("k__Fungi","p__Mortierellomycota","c__Mortierellomycetes","o__Mortierellales","f__Mortierellaceae",NA,NA,"NCBI","fASV_95")
+
+
+#Now, let's replace this taxonomy information in the ps object
+
+#keep it as taxonomy table (matrix)
+tax <- tax_table(ps_ITS)
+
+tax[rownames(tax) %in% "fASV_1"] #this is how I get one row from the matrix 
+
+tax[rownames(tax) %in% "fASV_1"] <- f_ASV1  #this is how I can replace for one thing
+
+#check
+tax[rownames(tax) %in% "fASV_1"] #works!!
+
+#do the same with the rest
+tax[rownames(tax) %in% "fASV_27"] <- f_ASV27 
+tax[rownames(tax) %in% "fASV_80"] <- f_ASV80
+tax[rownames(tax) %in% "fASV_81"] <- f_ASV81
+tax[rownames(tax) %in% "fASV_95"] <- f_ASV95
+
+#Finally, replace taxonomy table in the ps object 
+tax_table(ps_ITS) <- tax
+
+#clean
+rm(df, number, ps_phylum, ps_sel, x, y, z, f_ASV1, f_ASV27, f_ASV80, f_ASV81, f_ASV95,
+   tax,tax_df,tax2, test, text, ASV_sel, colnames, Phylum_NA)
+
 ```
 
 ## New ps
-
 ```{r}
 
 #Final check of all ps throughout the filtering process
@@ -1372,13 +1488,21 @@ rm(plot_Fun)
 ps_ITS_raw #3553 ASVs
 ps_ITS #2269 ASVs
 
-#save ps object 
+#Save ps object
 save(ps_ITS, file = "./Results/amplicon/pre_procesing/ps_ITS.RData")
 
-#clean
-rm(ps_ITS_cont, ps_ITS_un, df_metadata, df_ITS, contamdf.both, contaminant_ASV,ps_contam, ps_noncontam, post, pre, sums, contaminants, contaminants.freq, contaminants.prev, ps_ITS_filtering, ps_ITS, ps_ITS_raw,
-   contaminants_list_ITS, mean, median, order_harvestID, stdev)
 
 ```
 
-Now it's ready to go to script 02 --> Alpha diversity! 
+I still need to:
+
+*make the filtering per experiment (this will be independent according to the type of analysis)
+
+*Blast it with funGuild
+
+
+
+
+
+
+
