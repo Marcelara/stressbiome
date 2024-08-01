@@ -1,0 +1,13 @@
+distance	Experiment	factor	Df	SumOfSqs	R2	F	Pr(>F)
+Bray-Curtis	cond_phytohormones	plant_pathway_induced	2	0.43972557878072	0.0857847293570855	1.26676274561268	0.046
+Bray-Curtis	cond_phytohormones	Residual	27	4.68619347553405	0.914215270642914	NA	NA
+Bray-Curtis	cond_phytohormones	Total	29	5.12591905431477	1	NA	NA
+Bray-Curtis	cond_real_insects	plant_pathway_induced	2	0.301216649694872	0.0461727151090564	0.992360645086684	0.513
+Bray-Curtis	cond_real_insects	Residual	41	6.22247702921098	0.953827284890943	NA	NA
+Bray-Curtis	cond_real_insects	Total	43	6.52369367890586	1	NA	NA
+Unifrac	cond_phytohormones	plant_pathway_induced	2	0.551541634026827	0.129666372122862	2.01129310368983	0.001
+Unifrac	cond_phytohormones	Residual	27	3.70200248074356	0.870333627877138	NA	NA
+Unifrac	cond_phytohormones	Total	29	4.25354411477039	1	NA	NA
+Unifrac	cond_real_insects	plant_pathway_induced	2	0.269268087143982	0.0489142630946875	1.05431335423436	0.369
+Unifrac	cond_real_insects	Residual	41	5.23563109988326	0.951085736905313	NA	NA
+Unifrac	cond_real_insects	Total	43	5.50489918702724	1	NA	NA
