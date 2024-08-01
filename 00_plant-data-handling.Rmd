@@ -639,7 +639,7 @@ simu <- simu[-c(9)]
 
 #separate 1st column 
 simu <- simu %>% 
-             separate(Treatment, c('soil_original', 'herbivory_original'), sep = '[-]')
+             tidyr::separate(Treatment, c('soil_original', 'herbivory_original'), sep = '[-]')
 
 #making factors 
 simu[c(1:5)] <- lapply(simu[c(1:5)], factor)
@@ -655,16 +655,16 @@ simu2 <- simu %>%
 
 #changing column names for aphids 
 simu3 <- simu2 %>%  
-              rename(dpi_8 = precount) %>%
-              rename(dpi_14 = total) %>% 
-              mutate(across(c(dpi_8, dpi_14), as.numeric))
+              mutate(dpi_8 = as.numeric(as.character(precount))) %>%
+              mutate(dpi_14 = as.numeric(as.character(total)))
 
 simu4 <- simu3 %>% 
-         select(-c('Place', 'Aphid sample leaf', 'Rest of plant'))%>%
+         dplyr::select(-c('Place', 'Aphid sample leaf', 'Rest of plant'))%>%
          mutate(Experiment="simulated")%>%
          mutate(Phase="feedback")%>%
          mutate(herbivory="aphid")%>%
          mutate(across(where(is.character), as.factor))
+    
 
 simu5 <- simu4 %>% 
          mutate(soil_inocula = 
@@ -676,7 +676,7 @@ simu5 <- simu4 %>%
                    mutate(across(soil_inocula, as.factor))
 
 simu6 <- simu5 %>% 
-         select(-c('soil_original', 'herbivory_original'))%>%
+         dplyr::select(-c('soil_original', 'herbivory_original', 'precount', 'total'))%>%
          relocate(ID, Block, Phase, Experiment, soil_inocula, herbivory, dpi_8, dpi_14)
 
 str(simu6)
@@ -707,7 +707,7 @@ real3 <- real2 %>%
 real4 <- real3 %>%
              rename(dpi_8 ='1st count') %>%
              rename(dpi_14 = Total)%>%
-             select(-c(Soil, Herbivore))%>%
+             dplyr::select(-c(Soil, Herbivore))%>%
              relocate(ID, Phase, Experiment, soil_inocula, herbivory, dpi_8, dpi_14)
 
 str(real4)
@@ -717,7 +717,7 @@ blocks <-read_excel("./plant_data/raw_data/raw_aphids.xlsx", sheet = "Insects_Bl
 str(blocks)
 
 blocks2 <- blocks %>% 
-            select(c(ID, Block))
+            dplyr::select(c(ID, Block))
 blocks2[c(1:2)] <- lapply(blocks2[c(1:2)], factor)
 
 id_select <- real4$ID

@@ -93,7 +93,7 @@ color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
 color_control <- rgb(0.6,0.6,0.6) #gray
 color_simulated <- rgb(0.8,0.2,0.6) #pink
 color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
-color_non-conditioned <-rgb(1,1,1,1)
+color_non_conditioned <-rgb(1,1,1,1)
 
 color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
 color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
@@ -438,8 +438,6 @@ table <- nice_table(pair_ppi_df,
               
 flextable::save_as_docx(table, path = "./Tables/02_phytohormones/posthoc_cond_ppi.docx")
 
-
-
 ```
 
 
@@ -746,12 +744,12 @@ Biplot <-scoreplot+
 
 #save plot
 ggsave(
-  filename = "feedback_phyto_PLSDA_ByHerbivory.svg",
+  filename = "feedback_phyto_PLSDA_ByHerbivory_long.svg",
   plot = Biplot,
   path = "./Plots/02_phytohormones",
   scale = 1.5,
-  width = 1200,
-  height = 700,
+  width = 1000,
+  height = 900,
   units = "px",
   dpi = 300)
 
