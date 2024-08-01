@@ -69,16 +69,25 @@ ps_ITS
 
 #let's quickly check how many replicates we have left per experiment
 #and how is the library size amongst them
-ps_ITS %>% 
+df_summ <- ps_ITS %>% 
     sample_data() %>% 
     group_by(Experiment, Stress)%>%
     summarise(Replicates = n(),
               library_size = mean(libsize_after_filtering),
               stdev_libsize =sd(libsize_after_filtering))%>%
+    as.data.frame()
+
+df_summ%>%
     ggplot(., aes(x=Stress,y=library_size, label=Replicates))+
     geom_bar(stat = "identity")+
     geom_text(size=8)+
     facet_wrap(~Experiment, scales = "free_x") #ok
+
+#save this table
+table <- nice_table(df_summ,
+              title = c("Table X. Summary for ITS"))
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/summary_ITS.docx")
+
 
 #get sample data df 
 sample_data <- as.data.frame(sample_data(ps_ITS))
@@ -515,17 +524,27 @@ ps_16S
 
 #let's quickly check how many replicates we have left per experiment
 #and how is the library size amongst them
-ps_16S %>% 
+df_summ <- ps_16S %>% 
     sample_data() %>% 
     group_by(Experiment, Stress)%>%
     summarise(Replicates = n(),
               library_size = mean(libsize_after_filtering),
-              stdev_libsize =sd(libsize_after_filtering))%>%
+              stdev_libsize =sd(libsize_after_filtering)) %>% 
+    as.data.frame()
+
+df_summ%>%
     ggplot(., aes(x=Stress,y=library_size, label=Replicates))+
     geom_bar(stat = "identity")+
     geom_text(size=8)+
     facet_wrap(~Experiment, scales = "free_x")
 #around same number of reps but Insect herbivory exp has overall less reads 
+
+#save this table
+table <- nice_table(df_summ,
+              title = c("Table X. Summary for 16S"))
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/summary_16S.docx")
+
+
 
 #get sample data df 
 sample_data <- as.data.frame(sample_data(ps_16S))
