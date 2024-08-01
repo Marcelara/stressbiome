@@ -724,6 +724,9 @@ rm(ps_16S_raw, ps_16S_decontam, ps_16S_plastid, ps_16S_filtering, plot_Bac)
 
 **[MA] test later to add Chrat's filtering independently by experiment & by treatment**
 
+#Summary
+
+
 
 # ITS
 
@@ -1573,11 +1576,87 @@ guild_table <-read.delim("amplicon_data/FunGuild/otu_table_top50.guilds.txt",
 
 ```
 
+With the full ps
 
+```{r}
 
+#first check the format of the OTU table
+#rows should be taxa names and columns sample names
+head(otu_table(ps_ITS)) #ok
+otu <- as.data.frame(otu_table(ps_ITS))
+head(otu)
 
+#Then check the taxonomy table
+head(tax_table(ps_ITS)) #rows are ASVs and tax information is columns, ok
+tax <- as.data.frame(tax_table(ps_ITS))
+tax <- tax[,-8:-9] #let's delete the confidence column and ASV for now
+colnames_tax <- colnames(tax)
 
+#make a new df in which everything is in a single column
+#https://www.r-bloggers.com/2022/07/convert-multiple-columns-into-a-single-column-tidyr-part4/
+taxonomy <- tax %>% 
+            select(all_of(colnames_tax))%>%
+            unite(col="taxonomy", sep=';')
 
+#now I need to add this taxonomy column to the otu table 
+otu_table_ITS <- cbind(otu, taxonomy)
+otu_table_ITS$OTU_ID <- rownames(otu_table_ITS)
 
+otu_table_ITS <- otu_table_ITS %>% 
+                 relocate(OTU_ID) #place it in column 1
 
+#save it as a table
+write.table(otu_table_ITS, "amplicon_data/FunGuild/otu_table_ITS.txt",
+            sep="\t",
+            row.names=FALSE,
+            col.names = TRUE,
+            quote = FALSE)
 
+```
+
+After running it in the shell terminal with the python script (following https://github.com/UMNFuN/FUNGuild), let's see what we've got:
+
+```{r}
+
+guild_table_full <-read.delim("amplicon_data/FunGuild/otu_table_ITS.guilds.txt",
+                         header=TRUE,
+                         sep="\t",
+                         fill=TRUE,
+                         strip.white=TRUE)
+
+#keep only those with information (last 10 columns)
+guild_table_full <- guild_table_full[ , c(1, 124:133)]
+
+#save it 
+write.csv(guild_table_full, "amplicon_data/FunGuild/otu_table_ITS.guilds.csv")
+
+#check
+unique(guild_table_full$Trophic.Mode) #9 different ones 
+unique(guild_table_full$Guild) #148 different ones 
+
+guild <- as.data.frame(guild_table_full)
+guild <- guild %>%
+        select(-c(Citation.Source, taxonomy, Notes)) #let's remove these columns because annoying
+
+colnames(guild)[1] <- "ASV" #change it to ASV to merge it
+
+#make df again of taxonomy
+tax <- as.data.frame(tax_table(ps_ITS))
+
+#merge
+tax_guild <- right_join(tax, guild, by="ASV") #ok
+rownames(tax_guild) <- tax_guild$ASV
+
+tax_guild <- as.matrix(tax_guild)
+
+#put it back to ps
+tax_table(ps_ITS) <- tax_guild #done!
+
+#save ps_ITS finally
+save(ps_ITS, file = "./Results/amplicon/pre_procesing/ps_ITS_FunGuild.RData")
+
+```
+
+Now its ready for script 01
+
+#Summary

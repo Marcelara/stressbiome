@@ -32,14 +32,16 @@ theme_set(theme_bw())
 color_stress <- c("#BFBFBF", "#4472C4")
 
 # Set default axis looks
-axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 11,
                                                face = "bold", angle=0, hjust=0.5))+ #text in X
-  theme(axis.text.y = element_text(colour = "black", size = 9, face = "bold"))+ #text in y
-  theme(axis.title=element_text(size=11, face = "bold"))+ #all texts
-  theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)))+
- theme(panel.grid.major = element_blank(), #no grid
-        panel.grid.minor = element_blank()) #no grid
-  theme(legend.position="none")+ #no legend
+  theme(axis.text.y = element_text(colour = "black", size = 11, face = "bold"))+ #text in y
+  theme(axis.title=element_text(size=12, face = "bold"))+ #all texts
+  theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)))
+
+#+
+# theme(panel.grid.major = element_blank(), #no grid
+#        panel.grid.minor = element_blank()) #no grid
+#  theme(legend.position="none")+ #no legend
 
 ```
 
@@ -93,6 +95,7 @@ str(time)
 levels(time$wavename)
 levels(time$group)
 
+library(plotrix)
 #make a summary df only selecting for phloem feeding and pathway 
 summary <- time %>%  
            filter(wavename %in% c("phloem feeding", "pathway")) %>% 
@@ -107,13 +110,16 @@ summary <- time %>%
 #keep only first 6 hours 
 summary <- summary %>% 
            filter(hour %!in% c("7", "8")) 
+
+summary.r <- summary %>% filter (plant_species == "Bole_Riv")
+
 # Rivera ====
 ## Pathway 
 riv_pathway <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == "pathway"),
                    aes(x=hour, y=mean_time, color=group))+
          geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
-         geom_line(stat="identity", linewidth=0.8)+
-         geom_point(size=2.5)+
+         geom_line(stat="identity", linewidth=0.9)+
+         geom_point(size=3)+
          scale_color_manual(values= c("#7D7D7D", "#4472C4"))+
          ylim(0,80)+
          axis_looks+
@@ -132,8 +138,8 @@ ggsave(
 riv_phloem <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == "phloem feeding"),
                    aes(x=hour, y=mean_time, color=group))+
          geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
-         geom_line(stat="identity", linewidth=0.8)+
-         geom_point(size=2.5)+
+         geom_line(stat="identity", linewidth=0.9)+
+         geom_point(size=3)+
          scale_color_manual(values= c("#7D7D7D", "#4472C4"))+
          ylim(0,60)+
          axis_looks+
@@ -220,12 +226,15 @@ riv_aphids <- ggplot(subset(aphid, Soil_species == "Riv"),
                       position = position_dodge(width = 0.8), lwd=0.8)+
          geom_jitter(subset(aphid, Soil_species == "Riv"),
               mapping = (aes(x=Soil_stress, y=aphids_14dpi, fill = Soil_stress)),
-              shape = 21, size = 1.8, color = "black",
+              shape = 21, size = 2, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
          scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
          scale_x_discrete(labels=c("Ctr" = "Control-inocula", "SA" = "SA-inocula"))+
+  ylim(0,60)+
          axis_looks+
-         labs(y="Number of M. persicae aphids 14dpi", x="")
+  theme(panel.grid.major = element_blank(), #no grid
+       panel.grid.minor = element_blank())+ #no grid
+  labs(y="Number of M. persicae aphids 14dpi", x="")
 
 ggsave(
   filename = "aphids_Bole_Riv.svg",
@@ -288,7 +297,10 @@ riv_shoot <- ggplot(subset(plant, Soil_species == "Bole_Riv"),
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
          scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
          scale_x_discrete(labels=c("Ctr" = "Control-inocula", "SA" = "SA-inocula"))+
+  ylim(0,700)+
          axis_looks+
+  theme(panel.grid.major = element_blank(), #no grid
+       panel.grid.minor = element_blank())+ #no grid
          labs(y="Shoot biomass (mg)", x="")
 
 ggsave(
