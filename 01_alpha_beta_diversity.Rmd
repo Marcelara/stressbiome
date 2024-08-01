@@ -1,11 +1,11 @@
 ---
-title: "NGS_data_preprocessing"
+title: "Alpha diversity"
 author: "Marcela Aragon"
 date: "29/07/2024"
 output: html_document
 ---
 
-This script will deal with calculating alpha and beta diversity for 16S and ITS 
+This script will deal with calculating alpha diversity for 16S and ITS 
 
 #Loading packages 
 
@@ -554,43 +554,43 @@ More or less same replicates
 ```{r}
 
 #plot it
-p <- lapply(ITS_exp_rar, function(ps){plot_richness(ps, x= "plant_pathway_induced", scales="free_y")})
+p <- lapply(p16S_exp_rar, function(ps){plot_richness(ps, x= "plant_pathway_induced", scales="free_y")})
 
 lapply(p, function(plot){
   plot + geom_boxplot(data=plot$data, aes(x= Experiment, y=value, color=NULL), alpha=0.1)+
     scale_color_manual(values=color_experiment)})
 
 #Observed(Richness):Total number of ASVs
-#Chao1:Same as Observed but aims to calculate real number of ASVs using single- and doubletons
+#Chao1:Same as Observed but aims to calculate real number of ASVs using single- and doubletons, cannot be used
 #Shannon(diversity index):Lower value, lower diversity
 #Simpson(similarity index):Takes abundance (eveness) into account. Lower value, higher diversity
 
 
 #get Observed, Shannon and Simpson indexes
-richness <- lapply(ITS_exp_rar, function(ps){
+richness_16S <- lapply(p16S_exp_rar, function(ps){
   estimate_richness(ps,
             measures = c("Observed", "Chao1", "Shannon", "Simpson"))
 })
 
 #fix df 
-richness <- lapply(richness, function(df){
+richness_16S <- lapply(richness_16S, function(df){
   rownames(df) <- sub("X", "", rownames(df)) #removes X from rownames
   df$sample_name <- rownames(df) 
   return(df)
 })
 
 #Get Faith's phylogenetic diversity index
-pd <- lapply(ITS_exp_rar, function(ps){
+pd <- lapply(p16S_exp_rar, function(ps){
   pd(t(as.data.frame(ps@otu_table)), ps@phy_tree,include.root=T)
   })
 
 #merge with metadata of ps object
-richness$cond_phytohormones <- x<-cbind(as.data.frame(sample_data(ITS_exp_rar$cond_phytohormones)), richness$cond_phytohormones, pd$cond_phytohormones)
+richness_16S$cond_phytohormones <- cbind(as.data.frame(sample_data(p16S_exp_rar$cond_phytohormones)), richness_16S$cond_phytohormones, pd$cond_phytohormones)
 
-richness$cond_real_insects<- cbind(as.data.frame(sample_data(ITS_exp_rar$cond_real_insects)), richness$cond_real_insects, pd$cond_real_insects)
+richness_16S$cond_real_insects<- cbind(as.data.frame(sample_data(p16S_exp_rar$cond_real_insects)), richness_16S$cond_real_insects, pd$cond_real_insects)
 
 #select the columns needed
-richness <- lapply(richness, function(df){
+richness_16S <- lapply(richness_16S, function(df){
   df <- df %>% dplyr::select(c('Experiment',
                          'plant_pathway_induced',
                          'Amplicon_concentation_ngul',
@@ -601,11 +601,11 @@ richness <- lapply(richness, function(df){
 })
 
 #make another set with long format for plotting
-richness_long <- lapply(richness, function(df){
+richness_long_16S <- lapply(richness_16S, function(df){
   df_long <- reshape2::melt(df)})
 
 #clean
-rm(p)
+rm(p, pd)
 
 ```
 
@@ -616,12 +616,12 @@ For now, just work with Richness, Shannon and PD
 Plot it
 ```{r}
 
-estimates <- c("Observed","Chao1", "Shannon", "Simpson", "PD")
+estimates <- c("Observed","Shannon","PD")
 
 #Plot phytohormones
-ggplot(subset(richness_long$cond_phytohormones, variable %in% estimates), aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
+ggplot(subset(richness_long_16S$cond_phytohormones, variable %in% estimates), aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
      geom_boxplot(aes(fill = plant_pathway_induced))+
-     geom_jitter(data = subset(richness_long$cond_phytohormones, variable %in% estimates),
+     geom_jitter(data = subset(richness_long_16S$cond_phytohormones, variable %in% estimates),
                  mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
               shape = 21, size = 1.5, color = "black", alpha=0.5,
               position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
@@ -635,17 +635,17 @@ mapply(function(x)
   filename =x,
   path = "./Plots/01_alpha_beta_diversity",
   scale = 1.8,
-  width = 800,
-  height = 700,
+  width = 1000,
+  height = 500,
   units = "px",
   dpi = 300),
-x=c("alpha_phyto_ITS.svg","alpha_phyto_ITS.png"))
+x=c("alpha_phyto_16S.svg","alpha_phyto_16S.png"))
 
 #Plot Herbivores
-ggplot(subset(richness_long$cond_real_insects, variable %in% estimates),
+ggplot(subset(richness_long_16S$cond_real_insects, variable %in% estimates),
        aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
      geom_boxplot(aes(fill = plant_pathway_induced))+
-     geom_jitter(data = subset(richness_long$cond_real_insects, variable %in% estimates),
+     geom_jitter(data = subset(richness_long_16S$cond_real_insects, variable %in% estimates),
                  mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
               shape = 21, size = 1.5, color = "black", alpha=0.5,
               position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
@@ -659,19 +659,19 @@ mapply(function(x)
   filename =x,
   path = "./Plots/01_alpha_beta_diversity",
   scale = 1.8,
-  width = 800,
-  height = 700,
+  width = 1000,
+  height = 500,
   units = "px",
   dpi = 300),
-x=c("alpha_herbivore_ITS.svg","alpha_herbivore_ITS.png"))
+x=c("alpha_herbivore_16S.svg","alpha_herbivore_16S.png"))
 
 #Both
-richness_full_long <- rbind(richness_long$cond_phytohormones, richness_long$cond_real_insects)
+richness_full_long_16S <- rbind(richness_long_16S$cond_phytohormones, richness_long_16S$cond_real_insects)
 
-ggplot(subset(richness_full_long, variable %in% estimates),
+ggplot(subset(richness_full_long_16S, variable %in% estimates),
        aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
      geom_boxplot(aes(fill = plant_pathway_induced))+
-     geom_jitter(data = subset(richness_full_long, variable %in% estimates),
+     geom_jitter(data = subset(richness_full_long_16S, variable %in% estimates),
                  mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
               shape = 21, size = 1.5, color = "black", alpha=0.5,
               position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
@@ -686,23 +686,21 @@ mapply(function(x)
   path = "./Plots/01_alpha_beta_diversity",
   scale = 1.8,
   width = 1000,
-  height = 1400,
+  height = 1200,
   units = "px",
   dpi = 300),
-x=c("alpha_both_ITS.svg","alpha_both_ITS.png"))
+x=c("alpha_both_16S.svg","alpha_both_16S.png"))
 
 
 ```
 
-*Lower Richness in JA-induced plants in both experiments
-*Simpson's D shows that phytohormone experiment was less diverse than the herbivore experiment
-*PD also was lower in JA-induced plants in phyto, and with a similar trend but not so conspicuous in the herbivore-induced experiment.
+*No clear patterns
 
 Let's check if there is a correlation with library size 
 ```{r}
 
 #plot it and calculate correlation coefficient
-ggscatter(richness$cond_phytohormones, x = "libsize_after_filtering",
+ggscatter(richness_16S$cond_phytohormones, x = "libsize_after_filtering",
           y = estimates,
           combine=TRUE,
           ylab= "parameter",
@@ -710,9 +708,9 @@ ggscatter(richness$cond_phytohormones, x = "libsize_after_filtering",
           add = "reg.line",
           conf.int = TRUE,
           facet.by = NULL, scales= "free_y")+
-   stat_cor(aes(color=plant_pathway_induced), method="pearson")#correlation with JA
+   stat_cor(aes(color=plant_pathway_induced), method="pearson")#correlation with Observed and Shannon
 
-ggscatter(richness$cond_real_insects, x = "libsize_after_filtering",
+ggscatter(richness_16S$cond_real_insects, x = "libsize_after_filtering",
           y = estimates,
           combine=TRUE,
           ylab= "parameter",
@@ -720,32 +718,33 @@ ggscatter(richness$cond_real_insects, x = "libsize_after_filtering",
           add = "reg.line",
           conf.int = TRUE,
           facet.by = NULL, scales= "free_y")+
-   stat_cor(aes(color=plant_pathway_induced), method="pearson") #looks better
+   stat_cor(aes(color=plant_pathway_induced), method="pearson") #Correlates with the 3 indexes
 
 ```
 *There is a correlation between the estimates and the library size, specially for Shannon and Simpson 
 
-*As singletons and doubletons were removed from the dataframe, Chao 1 is basically the same as just richness (Observed)
 
 ###Stats
 ```{r}
 
 #make a single df with both experiments
-richness_full <- rbind(richness$cond_phytohormones, richness$cond_real_insects)
+richness_full_16S <- rbind(richness_16S$cond_phytohormones, richness_16S$cond_real_insects)
 
 #Does libsize  covary with Experiment and treatments?: Different between experiments, but no interaction
-m.reads <- lm(libsize_after_filtering ~ Experiment * plant_pathway_induced,
-                data=richness_full)
+m.reads <- glm(libsize_after_filtering ~ Experiment * plant_pathway_induced,
+                data=richness_full_16S,
+               family=Gamma("inverse")) #skewed to the left
+
 car::Anova(m.reads, type="III", test.statistic="F")
 
 #check if assumptions are met
-simulateResiduals(m.reads, plot=T) 
+simulateResiduals(m.reads, plot=T) #ok
 plot(m.reads)
-hist(resid(m.reads)) #normalish
+hist(resid(m.reads)) #better
 qqnorm(resid(m.reads)) #also
 
 #emmeans
-plot(emmeans(m.reads, pairwise ~  plant_pathway_induced | Experiment)) #overall herbivore less libsize
+plot(emmeans(m.reads, pairwise ~  plant_pathway_induced | Experiment))#nothing different
 
 #clean
 rm(m.reads)
@@ -757,22 +756,26 @@ Now I can continue analyzing each experiment independently, and focusing in Rich
 ####Richness
 ```{r}
 
+#change name to avoid re-writting the code
+richness <- richness_16S
+
 ##1.Observed/Richness
 obs <- lapply(richness, function(df){
-        lm(df$Observed ~ plant_pathway_induced + libsize_after_filtering,
-                data=df)})
+        glm(df$Observed ~ plant_pathway_induced + libsize_after_filtering,
+                data=df,
+                family=quasipoisson())})#changed to glm with quasipoisson distribution
 
 obs.table <- lapply(obs, function(model){
   car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
 })
 
 #check if assumptions are met
-lapply(obs, function(model){simulateResiduals(model, plot=T)}) #ok
+lapply(obs, function(model){simulateResiduals(model, plot=T)}) #not working with quasipoisson
 lapply(obs, function(model){hist(resid(model))}) #normalish
-lapply(obs, function(model){qqnorm(resid(model))}) #also
+lapply(obs, function(model){ols_plot_resid_qq(model)}) #okeysh
+lapply(obs, function(model){ols_plot_resid_fit(model)}) #okeysh
 
 #emmeans: Post-hoc test
-lapply(obs, function(model){plot(emmeans(model, pairwise ~  plant_pathway_induced))}) 
 obs.emmeans <- lapply(obs, function(model){
               emmeans(model, pairwise ~  plant_pathway_induced)})
 
@@ -785,21 +788,24 @@ obs.df <- lapply(obs.emmeans, function(emmeans){
 ####Shannon
 ```{r}
 
+descdist(richness$cond_phytohormones$Simpson, discrete = FALSE)
+
 ##2.Shannon
 shann <- lapply(richness, function(df){
-        lm(df$Shannon ~ plant_pathway_induced + libsize_after_filtering,
+        lm(log(df$Shannon) ~ plant_pathway_induced + libsize_after_filtering,
                 data=df)})
 
 shann.table <- lapply(shann, function(model){
   car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
 })
 
-shann.table #both signigicant
+shann.table #both significant
 
 #check if assumptions are met
 lapply(shann, function(model){simulateResiduals(model, plot=T)}) #ok
 lapply(shann, function(model){hist(resid(model))}) #normalish
-lapply(shann, function(model){qqnorm(resid(model))}) #also
+lapply(shann, function(model){ols_plot_resid_qq(model)}) #okeysh
+lapply(shann, function(model){ols_plot_resid_fit(model)}) #okeysh
 
 #emmeans: Post-hoc test
 lapply(shann, function(model){plot(emmeans(model, pairwise ~  plant_pathway_induced))}) 
@@ -812,15 +818,16 @@ shann.df <- lapply(shann.emmeans, function(emmeans){
 
 ```
 
-Difference between control and SA only in Insects experiment.
+No difference, same shannon index value (and Simpson, very similar communities)
 
 ####Faith's PD
 ```{r}
 
 ##3. Phylogenetic Diversity
 pd <- lapply(richness, function(df){
-        lm(df$PD ~ plant_pathway_induced + libsize_after_filtering,
-                data=df)})
+        glm(log(df$PD) ~ plant_pathway_induced + libsize_after_filtering,
+                data=df,
+            family=quasipoisson())})
 
 pd.table <- lapply(pd, function(model){
   car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
@@ -829,9 +836,11 @@ pd.table <- lapply(pd, function(model){
 pd.table #both signigicant
 
 #check if assumptions are met
-lapply(pd, function(model){simulateResiduals(model, plot=T)}) # not ok for phyto
 lapply(pd, function(model){hist(resid(model))}) #normalish
 lapply(pd, function(model){qqnorm(resid(model))}) #also
+lapply(pd, function(model){ols_plot_resid_qq(model)}) #okeysh
+lapply(pd, function(model){ols_plot_resid_fit(model)}) #okeysh
+
 
 #emmeans: Post-hoc test
 lapply(pd, function(model){plot(emmeans(model, pairwise ~  plant_pathway_induced))}) 
@@ -890,64 +899,28 @@ shann_both <-make_lm_table_2_experiments(shann.table, Shannon)
 pd_both <-make_lm_table_2_experiments(pd.table, `Faith's PD`)
 
 #Finally, merge them
-alpha_df <- rbind(obs_both, shann_both, pd_both)
+colnames(shann_both) <- colnames(obs_both)
+alpha_df_16S <- rbind(obs_both, shann_both, pd_both)
 
 #save it
-table <- nice_table(alpha_df,
-              title = c("Table X. Results of Linear Model testing alpha diversity metrics for ITS communities"))
+table <- nice_table(alpha_df_16S,
+              title = c("Table X. Results of Linear Model testing alpha diversity metrics for 16S communities"))
               
-flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/both_alpha_lm_ITS.docx")
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/both_alpha_lm_16S.docx")
 
-#2. Get post-hoc results
-obs.df
-shann.df
-pd.df
-
-#make a function to not repeat the code 
-make_emmeans_table_2_experiments <-function(emmeans.df, name_index){
-  
- #get name of index
- index <- deparse(substitute(name_index))
-  
-#split in two
- phyto <-  emmeans.df$cond_phytohormones
- herbivore <- emmeans.df$cond_real_insects
- 
-#rename each 
- p <- phyto %>% column_to_rownames(var = "contrast") %>% 
-   rename_with(~paste0("p_", .x))
- p$p_p.value <- scales::pvalue(p$p_p.value)#round p value
-
- h <- herbivore %>% column_to_rownames(var = "contrast") %>% 
-   rename_with(~paste0("h_", .x))
- h$h_p.value <- scales::pvalue(h$h_p.value)#round p value
- 
- both <- cbind(p,h)
- both <- both %>% mutate(Index=index)%>%
-                  rownames_to_column(var="contrast")%>%
-                  relocate(Index, contrast)
- return(both)
-}
-
-obs_emm_both <- make_emmeans_table_2_experiments(obs.df, Richness)
-shann_emm_both <- make_emmeans_table_2_experiments(shann.df, Shannon)
-pd_emm_both <- make_emmeans_table_2_experiments(pd.df, `Faith's PD`)
-
-#Finally, merge them
-alpha_posthoc_df <- rbind(obs_emm_both, shann_emm_both, pd_emm_both)
-
-#save it
-table <- nice_table(alpha_posthoc_df,
-              title = c("Table X. Results of Emmeans testing alpha diversity metrics for ITS communities"))
-              
-flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/both_alpha_ph_ITS.docx")
+#2. Get post-hoc results (not necessary as nothing was significant)
 
 #3. Finally, save df with alpha diversity metrics results
-richness_full
-write.csv(richness_full, file="./Data_frames/01_alpha_beta_diversity/alpha_metrics_ITS.csv", row.names = TRUE)
+richness_full_16S
+write.csv(richness_full_16S, file="./Data_frames/01_alpha_beta_diversity/alpha_metrics_16S.csv", row.names = TRUE)
 
-#ready!
+#save environment
+save.image(file='./R_environments/01_alpha_beta_diversity/alpha_16S.rdata')
+
+#clean
+rm(list=ls())
+
 ```
 
-Continue with 16S
+
 
