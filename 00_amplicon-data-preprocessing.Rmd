@@ -25,8 +25,6 @@ library(decontam)
 library(viridis)
 library(vegan)
 library(GGally)
-#library(mia)
-#library(miaViz)
 library(microbiome)
 library(metagMisc)
 
@@ -233,9 +231,24 @@ metadata <- metadata.merged %>%
                   relocate(where(is.numeric), .after=Stress) %>%
                   relocate(ID_experiment, .after=Plate)  #this is the plant ID from Haris' data
 
+#Include plant_pathway induced for EPG as well 
+metadata  <- metadata %>%
+            mutate(plant_pathway_induced=case_when(
+             (Experiment == "EPG" & Stress == "Control") ~ "Control",
+             (Experiment == "EPG" & Stress == "MeJA") ~ "JA",
+             (Experiment == "EPG" & Stress == "SA") ~ "SA",
+             .default=as.character(plant_pathway_induced))) #keeps the rest as it is
+
 #Finally make it a sample_data object for phyloseq 
 metadata<- sample_data(metadata)
 head(metadata)
+
+
+
+
+
+
+
 
 #clean
 rm(metadata_full, metadata.cond,
