@@ -27,6 +27,7 @@ library(vegan)
 library(GGally)
 library(microbiome)
 library(metagMisc)
+library(varhandle)
 
 #Set plots theme
 ggplot2::theme_set(theme_bw())
@@ -243,13 +244,6 @@ metadata  <- metadata %>%
 metadata<- sample_data(metadata)
 head(metadata)
 
-
-
-
-
-
-
-
 #clean
 rm(metadata_full, metadata.cond,
    metadata.merged, phyto, insects, metadata_sel, x)
@@ -277,7 +271,7 @@ View(sample_data(ps_16S))
 ps_16S_raw <- ps_16S
 
 #save ps_16S
-save(ps_16S_raw, file = "./Results/amplicon/pre_procesing/ps_16S_raw.RData")
+save(ps_16S_raw, file = "./amplicon_data/Phyloseq_objects/ps_16S_raw.RData")
 
 #clean to not have it twice
 rm(tree, otu, taxtab, refseq, metadata, ps_16S)
@@ -303,15 +297,6 @@ names(sums[order(sums)][1]) #123_ch
 ps_16S <- subset_samples(ps_16S, Harvest_ID != "123_ch")
 prune_taxa(taxa_sums(ps_16S ) >0, ps_16S)
 
-#see the correlation between number of reads and diversity of ASVs
-#rarecurve(t(otu_table(ps_16S)), step=50, cex=0.5)
-
-# see it by experiment
-#p <- plot_bar(ps_16S, x="Sample", fill="Phylum", facet_grid=~Experiment)
-
-#ggsave("Bac.raw_rarefaction.png", path = "./Results/Plots/Exploration",
-#         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
-
 ```
 
 ## Remove contaminants 
@@ -322,7 +307,7 @@ Following: https://benjjneb.github.io/decontam/vignettes/decontam_intro.html, ht
 
 The decontam package tests whether abundance of a certain taxa is not associated with DNA concentration. Because DNA concentration measurements are not very accurate and we want to remove possible contaminants we use a relaxed p value following the Microbiomics Workshop
 
-#### By Frequency
+#### [delete]By Frequency
 ```{r}
 
 # 1.Identify contamination by 'frequency' keeping each run independently by Experiment
@@ -373,7 +358,7 @@ contaminants.freq <- rownames(subset(contamdf.freq, contaminant%in%c("TRUE")))
 
 * Most of the contaminant ASVs are proteobacteria. There's more abundance in the Phyto experiment compared to Insects and EPG
 
-#### By Prevalence
+#### [delete]By Prevalence
 ```{r}
 # 2.Identify contaminants by 'Prevalence' in the Blank samples
 
@@ -423,17 +408,16 @@ contaminants.prev <- rownames(subset(contamdf.prev, contaminant%in%c("TRUE")))
 
 ```
 
+
+
 #### Both
-
-**There seems to be an error with the OTU table of the ps_16S https://rdrr.io/bioc/decontam/src/R/decontam.R says that rows should be samples and columns OTUs but in my case is different. Weird thing is the ps_ITS is the same and it worked
-
 
 ```{r}
 
 #makes new column with 'TRUE' just for blanks
 ps_16S@sam_data$is.neg <- ps_16S@sam_data$Stress=="Blank" 
 
-# 3. Finallyps_16S# 3. Finally combining both frequency and prevalence approaches
+#Combining both frequency and prevalence approaches
 contamdf.both <- isContaminant(ps_16S,
                                method="combined",
                                neg="is.neg",
@@ -473,7 +457,7 @@ ps_noncontam <- prune_taxa(!contamdf.both$contaminant, ps_16S)
 pre <- sum(sample_sums(ps_16S))
 post <- sum(sample_sums(ps_noncontam))
 
-(pre-post) / pre #only 0.007%
+((pre-post)/pre)*100 #only 0.7%
 
 #names of ASVs
 contaminants.both <- rownames(subset(contamdf.both, contaminant%in%c("TRUE")))
@@ -610,7 +594,9 @@ rm(Mitochondria_ps, Chloroplast_ps, host_plant_ps)
 
 
 ### By sample reads & non-informative ASVs
-```{r }
+
+First, by full ps
+```{r}
 
 ps_16S_filtering <- ps_16S #make another one so you can compare
 
@@ -628,7 +614,7 @@ stdev <- sd(ps_16S@sam_data$libsize_after_plastid) #43,618.86
 
 #which will be the maximum of reads allowed if we keep mean +/- 2 stdev?
 mean + 2*stdev #172,646.7 ~ 173,000
-mean - 2*stdev #-1,828  
+mean - 2*stdev #-1,828 
 
 #remove samples with low number of reads, removing those with less than 10,000 reads
 #and with more than 200,000 reads, roughly 2x stdev
@@ -637,7 +623,9 @@ ps_16S <- subset_samples(ps_16S, libsize_after_plastid > 10000)
 ps_16S <- subset_samples(ps_16S, libsize_after_plastid < 200000) 
 
 #remove blanks
-ps_16S <- subset_samples(ps_16S, sample_or_blank != "blank") 
+#ps_16S <- subset_samples(ps_16S, sample_or_blank != "blank") 
+ps_16S_split <- lapply(ps_16S_split, function(ps){
+  subset_samples(ps, sample_or_blank != "blank") }) #43,45,48 left
 
 #remove ASVs with low-length sequences
 #check final sequence length. 16S sequences smaller than 380bp should be discarded
@@ -646,7 +634,7 @@ hist(as.data.frame(refseq(ps_16S)@ranges)$width, breaks = 50)
 
 #remove the ones smaller than 380bp
 ps_16S<- prune_taxa(taxa = as.data.frame(refseq(ps_16S)@ranges)$width>380,
-                       x = ps_16S) #431 ASVs removed
+                      x = ps_16S) #431 ASVs removed
 
 #remove those ASVs with now 0 reads 
 prune_taxa(taxa_sums(ps_16S) >0, ps_16S)
@@ -659,14 +647,98 @@ ps_16S@sam_data$libsize_after_filtering <- sample_sums(ps_16S)
 
 #check how many reads were kept at the end
 ps_16S@sam_data$pct_reads_kept <- ((ps_16S@sam_data$libsize_after_filtering/ps_16S@sam_data$total_reads)*100)
+hist(ps_16S@sam_data$pct_reads_kept)
 
+```
+
+Now, independently by experiment
+```{r }
+
+
+#as they come from independent experiments, separate them to filter them independently
+ps_16S_split <- phyloseq_sep_variable(ps_16S, variable="Experiment", drop_zeroes = T)
+
+#see how many reads
+median <- lapply(ps_16S_split, function(ps){
+         median(ps@sam_data$libsize_after_plastid)}) #87,821 | 60,108 | 83,092 reads 
+  
+mean <- lapply(ps_16S_split, function(ps){
+         mean(ps@sam_data$libsize_after_plastid)}) #111,779 | 61,805 | 81,678 reads   
+
+stdev <- lapply(ps_16S_split, function(ps){
+         sd(ps@sam_data$libsize_after_plastid)}) #58,788 | 25,936 | 18,369 reads   
+    
+
+#which will be the maximum of reads allowed if we keep mean +/- 2 stdev?
+max <- mapply(function(x,y){x+2*y}, x=median, y=stdev)
+min <- mapply(function(x,y){x-2*y}, x=median, y=stdev)
+
+#remove samples with low number of reads, removing those with less than 10,000 reads
+#and with more than 200,000 reads, roughly 2x stdev
+
+#Phyto
+max[1]
+min[1] #no lower bound
+sort(sample_sums(ps_16S_split$cond_phytohormones))
+ps_16S_split$cond_phytohormones <- subset_samples(ps_16S_split$cond_phytohormones,
+                                                  libsize_after_plastid < 210000) #6 samples lost 
+
+#Insects
+max[2] #almost no upper bound, will keep it
+min[2] #~10,000
+sort(sample_sums(ps_16S_split$cond_real_insects))
+ps_16S_split$cond_real_insects <- subset_samples(ps_16S_split$cond_real_insects,
+                                                  libsize_after_plastid > 8235) #2 samples lost 
+
+#EPG
+max[3] #~120,000
+min[3] #~46,352
+sort(sample_sums(ps_16S_split$EPG))
+ps_16S_split$EPG <- subset_samples(ps_16S_split$EPG,
+                                                  libsize_after_plastid > 46352) #1 sample lost, blank 
+
+
+#remove blanks
+ps_16S_split <- lapply(ps_16S_split, function(ps){
+  subset_samples(ps, sample_or_blank != "blank") }) #43,45,48 left
+
+#remove ASVs with low-length sequences
+#check final sequence length. 16S sequences smaller than 380bp should be discarded
+lapply(ps_16S_split, function(ps){summary(ps@refseq@ranges@width)})
+
+#remove the ones smaller than 380bp
+ps_16S_split <- lapply(ps_16S_split, function(ps){
+  prune_taxa(taxa = as.data.frame(refseq(ps)@ranges)$width>380, x = ps)})
+
+#remove those ASVs with now 0 reads 
+ps_16S_split <- lapply(ps_16S_split, function(ps){
+  prune_taxa(taxa_sums(ps) >0, ps)})
+
+#let's see how many sequences were kept after this filtering
+#add column to sample_data
+ps_16S_split <- lapply(ps_16S_split, function(ps){
+  ps@sam_data$libsize_after_filtering <- sample_sums(ps)
+  return(ps)
+})
+
+#check how many reads were kept at the end
+ps_16S_split <- lapply(ps_16S_split, function(ps){
+  ps@sam_data$pct_reads_kept <- ((ps@sam_data$libsize_after_filtering/ps@sam_data$total_reads)*100)
+  return(ps)
+})
+
+#plot histograms
+lapply(ps_16S_split, function(ps){
+  hist(ps@sam_data$pct_reads_kept)})
+
+#save it
+save(ps_16S_split, file = "./amplicon_data/Phyloseq_objects/ps_16S_split.RData")
 
 ```
 
 
-Checking filtering
+Checking filtering of full ps object 
 ```{r}
-
 #make it a df to plot it 
 df_16S <-data.frame(sample_data(ps_16S))
 order_harvestID <- df_16S$Harvest_ID
@@ -726,20 +798,14 @@ ps_16S_filtering #61,949
 ps_16S #61,295
 
 #save ps object 
-save(ps_16S, file = "./Results/amplicon/pre_procesing/ps_16S.RData")
+save(ps_16S, file = "./amplicon_data/Phyloseq_objects/ps_16S.RData")
 
 #clean
 rm(ps_16S_raw, ps_16S_decontam, ps_16S_plastid, ps_16S_filtering, plot_Bac)
 
+rm.all.but(keep=c("ps_16S", "ps_16S_split"), keep_functions = TRUE)
 
 ```
-
-
-**[MA] test later to add Chrat's filtering independently by experiment & by treatment**
-
-#Summary
-
-
 
 # ITS
 
@@ -923,6 +989,8 @@ metadata.merged$Experiment <- as.character(metadata.merged$Experiment) #make it 
 metadata.merged$Experiment[is.na(metadata.merged$Experiment)] <- 'EPG' #change it
 metadata.merged$Experiment <- as.factor(metadata.merged$Experiment)
 
+metadata.merged$Experiment[metadata.merged$Harvest_ID == 'Blank_M1'] <- 'EPG'
+
 #Add whether is a true sample or a blank sample
 metadata.merged <- metadata.merged %>% 
                    mutate(sample_or_blank = 
@@ -937,11 +1005,18 @@ metadata <- metadata.merged %>%
                   relocate(where(is.numeric), .after=Stress) %>%
                   relocate(ID_experiment, .after=Plate)  #this is the plant ID from Haris' data
 
+#Include plant_pathway induced for EPG as well 
+metadata  <- metadata %>%
+            mutate(plant_pathway_induced=case_when(
+             (Experiment == "EPG" & Stress == "Control") ~ "Control",
+             (Experiment == "EPG" & Stress == "MeJA") ~ "JA",
+             (Experiment == "EPG" & Stress == "SA") ~ "SA",
+             .default=as.character(plant_pathway_induced))) #keeps the rest as it is
+
 #Finally make it a sample_data object for phyloseq 
 metadata<- sample_data(metadata)
+head(metadata)
 
-#clean
-rm(metadata_full, metadata.cond, metadata.merged, phyto, insects, metadata_sel, x)
 
 ```
 
@@ -960,16 +1035,18 @@ taxa_names(ps_ITS )<- paste("f", taxa_names(ps_ITS), sep = "")
 #add total number of reads 
 ps_ITS@sam_data$total_reads <- sample_sums(ps_ITS)
 
-View(sample_data(ps_ITS))
-
+#change name to save it
 ps_ITS_raw <- ps_ITS
 
 #save ps_ITS_raw
-save(ps_ITS_raw, file = "./Results/amplicon/pre_procesing/ps_ITS_raw.RData")
+save(ps_ITS_raw, file = "./amplicon_data/Phyloseq_objects/ps_ITS_raw.RData")
 
-#clean to not have it twice
-rm(tree, otu, taxtab, refseq, metadata)
+#call it back ps_ITS to start filering and keep the 'raw' version untouched
+ps_ITS <- ps_ITS_raw
+
+
 ```
+
 
 ```{r}
 
@@ -983,15 +1060,6 @@ min(sums)
 # Sample with lowest counts:
 names(sums[order(sums)][1]) #makes sense 
 
-#see the correlation between number of reads and diversity of ASVs
-#rarecurve(t(otu_table(ps_ITS)), step=50, cex=0.5)
-
-# see it by experiment
-#plot_bar <- plot_bar(ps_ITS, x="Sample", facet_grid=~Experiment)
-
-#ggsave("Fun.raw_rarefaction.png", path = "./Plots/00_amplicon_preprocessing/",
-#         width = 40, height = 20 , units = "in", dpi=300, scale=0.3)
-
 ```
 
 Looks like all those samples that have very low reads also have low numbers of different ASVs and hence might be an artifact of the sequencing depth. These samples need to be removed. 
@@ -1002,7 +1070,7 @@ More samples from the phytohormone experiments are low on reads compared to real
 
 ### Decontam package Exploration
 
-#### By Frequency
+#### [delete]By Frequency
 ```{r}
 
 #First, checking if there's 0 in amplicon concentration, as decontam works with DNA concentration
@@ -1062,7 +1130,7 @@ contaminants.freq <- rownames(subset(contamdf.freq, contaminant%in%c("TRUE")))
 The frequency plots show that indeed those ASVs selected as contaminants have higher frequency when DNA concentrations are lower (than when they are higher), which its a clear indication that its not a biological response but rather an artifact of the method.
 
 
-#### By Prevalence
+#### [delete]By Prevalence
 
 ```{r}
 
@@ -1117,7 +1185,7 @@ contaminants.prev <- rownames(subset(contamdf.prev, contaminant%in%c("TRUE")))
 
 ```
 
-#### Both
+#### [skip]Both
 ```{r}
 
 ps_ITS@sam_data$is.neg <- ps_ITS@sam_data$Stress=="Blank" #makes new column with 'TRUE' just for blanks
@@ -1164,70 +1232,14 @@ ps_noncontam <- prune_taxa(!contamdf.both$contaminant, ps_ITS)
 pre <- sum(sample_sums(ps_ITS))
 post <- sum(sample_sums(ps_noncontam))
 
-(pre-post) / pre #19%
-
-#names of ASVs
-contaminants.both <- rownames(subset(contamdf.both, contaminant%in%c("TRUE")))
-
+((pre-post)/pre)*100 #19%
 
 ```  
 
-I consider losing between 20% and 24% of the reads seems like a lot, perhaps ITS data is different than 16S where only 0.07% of the reads were lost when using a combination of prevalence and frequency.
+I consider losing between 20% and 24% of the reads seems like a lot, perhaps ITS data is different than 16S where only 0.7% of the reads were lost when using a combination of prevalence and frequency.
 
 Frequency plots (line 1,132) also seem a bit off as these ASVs have a lot of reads but not necessarily extremely more at low DNA concentrations. Therefore, I will skip the decontamination for fungi altogether.
 
-
-### Final step
-```{r}    
-
-#save contaminants list just to check it in the future if needed
-contaminants_list_ITS <- list(both=contaminants.both, frequency=contaminants.freq, prevalence=contaminants.prev)
-
-#save it
-save(contaminants_list_ITS, file = "./Results/amplicon/pre_procesing/contaminants_list_ITS.RData")
-
-#clean
-rm(df_metadata, p.libsiz, contamdf.freq, contamdf.both, contamdf.prev, ps.pa.neg.both, ps.pa.pos.both, 
-   ps.pa, ps.pa.both, ps.pa.pos, df.pa, df.pa.both, p.prev, p.reads, ps.pa.neg, contaminant_ASV, contaminants,
-   n_contaminants, p_cont, ps_contam, ps_noncontam, contaminants.both, contaminants.freq, contaminants.prev)
-
-```
-
-
-
-###skip
-```{r}
-ps_ITS_decontam <- ps_ITS #save it to compare
-
-#clean physeq object by removing contaminant ASVs, then remove blank sample 
-ps_ITS <- prune_taxa(!taxa_names(ps_ITS) %in% contaminants.both, ps_ITS) # keep out taxa from contaminants list
-
-#remove those ASVs with now 0 reads 
-prune_taxa(taxa_sums(ps_ITS ) >0, ps_ITS)
-
-#plot final ps to check if the condition is not matched
-set.seed(100)
-plot_frequency(seqtab = ps_ITS, 
-               taxa = sample(taxa_names(ps_ITS),20),
-               conc="Amplicon_concentation_ngul")+
-    #aes(color = libsize_after_filtering)+
-    #scale_color_viridis()+
-    ggtitle("Real ASVs") #looks good
-
-#check number of reads 
-plot(sort(sample_sums(ps_ITS))) #still some samples with very few reads 
-
-#make new column with this information
-ps_ITS@sam_data$libsize_after_decontam <- sample_sums(ps_ITS)
-
-sort(ps_ITS@sam_data$libsize_after_decontam) 
-
-#Blank phyto: 372 reads
-#Blank insects: 1,174 reads 
-
-```
-
-Follow this tutorial: https://web.stanford.edu/class/bios221/MicrobiomeWorkflowII.html#shiny-phyloseq for more torough tips on how to filter and preprocess data ([MA] not sure however if its still valid as it is from 2017 and perhaps worked more with OTUs than ASVs)
 
 
 ## Filtering 
@@ -1240,7 +1252,7 @@ https://joey711.github.io/phyloseq/preprocess.html
 ```{r}
 
 #save it to compare
-ps_ITS_filtering <- ps_ITS #3,553 taxa
+ps_ITS #3,553 taxa
 
 #Add number of reads before filtering
 ps_ITS@sam_data$libsize_before_filtering <-sample_sums(ps_ITS)
@@ -1261,15 +1273,286 @@ post <- sum(ps_ITS@sam_data$libsize_after_nonFungi)
 
 ((pre-post)/pre)*100 #2.38% reads lost 
 
+#ps_ITS_filtering_finished <- ps_ITS #save it to be used when split by experiment
+
+```
+
+### Add missing taxonomy
+As later on I will split the ps in 3, I need to add now information about missing taxonomy and FunGuild info to avoid running it 3x later on.
+
+
+## Adding taxonomy
+```{r}
+
+tax <- as.data.frame(tax_table(ps_ITS))
+which(is.na(tax$Phylum)) #286 ASVs are NA at Phylum level
+
+Phylum_NA <- rownames(tax)[which(is.na(tax$Phylum))] #get which ones 
+
+#make a copy
+ps_phylum <- ps_ITS 
+
+#add ASV as a column
+tax$ASV <- rownames(ps_phylum@tax_table)  
+#replace in ps 
+tax_table(ps_ITS) <- tax_table(object = as.matrix(tax))
+
+#Now, let's get the sequences
+ps_phylum <- subset_taxa(ps_ITS, ASV %in% Phylum_NA) #ok
+
+#save sequences 
+ps_phylum %>%
+refseq() %>%
+Biostrings::writeXStringSet("./amplicon_data//ITS_phylum_NA.fna",
+             append=FALSE,compress=FALSE,
+             compression_level=NA, format="fasta")
+
+#Intermezzo: to get only those that are more abundant (ASV1-100)
+x <- as.data.frame(Phylum_NA)
+number <- separate(x, col=Phylum_NA, into= c("NA", "Number") )
+
+x$Number <- number$Number
+str(x) #ok
+x$Number <- as.numeric(x$Number)
+
+#Get them in order
+x <- x[order(x$Number),]
+
+ASV_sel <- x[c(1:10),] #get top 10 most abundant ones
+ASV_sel <- ASV_sel$Phylum_NA
+
+ps_sel <- subset_taxa(ps_phylum, ASV %in% ASV_sel)
+
+#save sequences of the most abundant ASVs (ASV 1-170) to blast them in NCBI 
+ps_sel %>%
+refseq() %>%
+Biostrings::writeXStringSet("./amplicon_data/ITS_phylum_NA_sel.fna",
+             append=FALSE,compress=FALSE,
+             compression_level=NA, format="fasta")
+
+```
+
+Manually, I blasted the ITS sequencing of the 10 most abundant fungi (below 170), the rest I will leave them with unknown taxonomy.
+
+Taxonomy table was filled to the taxonomic level in which there was a consensus on the top 5 hits with more % of identity and highest E value and a query cover of at least 50%.
+
+```{r}
+#Make taxonomy table a df so its easier to sort
+tax <- as.data.frame(tax)
+colnames <- colnames(tax)
+
+#get names of taxonomy to write exactly the same ones 
+unique(tax$Phylum)
+sort(unique(tax$Class))
+sort(unique(tax$Order))
+sort(unique(tax$Family))
+sort(unique(tax$Genus))
+sort(unique(tax$Species))
+
+#make one vector from each from the blast of NCBI
+#adding "NCBI" in the confidence column to trace them back if needed 
+
+#f_ASV1
+f_ASV1 <- c("k__Fungi","p__Olpidiomycota","c__Olpidiomycetes","o__Olpidiales","f__Olpidiaceae","g__Olpidium","s__Olpidium_brassicae","NCBI","fASV_1")
+
+#f_ASV27
+f_ASV27 <- c("k__Fungi","p__Mortierellomycota","c__Mortierellomycetes","o__Mortierellales","f__Mortierellaceae",NA,NA,"NCBI","fASV_27")
+
+#f_ASV80
+f_ASV80 <- c("k__Fungi","p__Mortierellomycota","c__Mortierellomycetes","o__Mortierellales","f__Mortierellaceae",NA,NA,"NCBI","fASV_80")
+
+#f_ASV81
+f_ASV81 <- c("k__Fungi","p__Basidiomycota","c__Ustilaginomycetes","o__Ustilaginales",NA,NA,NA,"NCBI","fASV_81")
+
+#f_ASV95
+f_ASV95 <- c("k__Fungi","p__Mortierellomycota","c__Mortierellomycetes","o__Mortierellales","f__Mortierellaceae",NA,NA,"NCBI","fASV_95")
+
+#f_ASV110 <- no hit was above 20% of query, therefore discarded 
+
+#f_ASV143 <- no hit was above 20% of query, therefore discarded 
+
+#f_ASV146
+f_ASV146 <- c("k__Fungi","p__Ascomycota","c__Dothideomycetes","o__Pleosporales","f__Cucurbitariaceae",NA,NA,"NCBI","fASV_146")
+
+#f_ASV168 <- no hit was above 20% of query, therefore discarded 
+
+
+#Now, let's replace this taxonomy information in the ps object
+
+#keep it as taxonomy table (matrix)
+tax <- tax_table(ps_ITS)
+
+tax[rownames(tax) %in% "fASV_1"] #this is how I get one row from the matrix 
+
+tax[rownames(tax) %in% "fASV_1"] <- f_ASV1  #this is how I can replace for one thing
+
+#check
+tax[rownames(tax) %in% "fASV_1"] #works!!
+
+#do the same with the rest
+tax[rownames(tax) %in% "fASV_27"] <- f_ASV27 
+tax[rownames(tax) %in% "fASV_80"] <- f_ASV80
+tax[rownames(tax) %in% "fASV_81"] <- f_ASV81
+tax[rownames(tax) %in% "fASV_95"] <- f_ASV95
+tax[rownames(tax) %in% "fASV_146"] <- f_ASV146
+
+#Finally, replace taxonomy table in the ps object 
+tax_table(ps_ITS) <- tax
+
+#clean
+rm( number, ps_phylum, ps_sel, x, y, z, f_ASV1, f_ASV27, f_ASV80, f_ASV81, f_ASV95,f_ASV146,
+   tax,tax_df,ASV_sel, colnames, Phylum_NA)
+
+```
+
+
+#FunGuild[not working on August 2nd, 2024]
+Following: https://readingradio.github.io/J.nigra.Rmds/soilfunguild_jnigra17_fa19_ajo.html
+
+```{r}
+
+#First, let's subset our ps object to the first 50 ASVs as a test
+top50 <- names(sort(taxa_sums(ps_ITS), decreasing = TRUE)[1:50])
+ps_ITS50 <- subset_taxa(ps_ITS, ASV %in% top50) #ok
+
+#first check the format of the OTU table
+#rows should be taxa names and columns sample names
+head(otu_table(ps_ITS50)) #ok
+otu <- as.data.frame(otu_table(ps_ITS50))
+head(otu)
+
+#Then check the taxonomy table
+head(tax_table(ps_ITS50)) #rows are ASVs and tax information is columns, ok
+tax <- as.data.frame(tax_table(ps_ITS50))
+tax <- tax[,-8:-9] #let's delete the confidence column and ASV for now
+colnames_tax <- colnames(tax)
+
+#make a new df in which everything is in a single column
+#https://www.r-bloggers.com/2022/07/convert-multiple-columns-into-a-single-column-tidyr-part4/
+taxonomy <- tax %>% 
+            select(all_of(colnames_tax))%>%
+            unite(col="taxonomy", sep=';')
+
+#now I need to add this taxonomy column to the otu table 
+otu_table_top50 <- cbind(otu, taxonomy)
+otu_table_top50$OTU_ID <- rownames(otu_table_top50)
+
+otu_table_top50 <- otu_table_top50 %>% 
+                   relocate(OTU_ID) #place it in column 1
+
+#save it as a table
+write.table(otu_table_top50, "amplicon_data/FunGuild/otu_table_top50.txt",
+            sep="\t",
+            row.names=FALSE,
+            col.names = TRUE,
+            quote = FALSE)
+
+```
+
+After running it in the shell terminal with the python script, let's see what we've got
+
+```{r}
+
+guild_table <-read.delim("amplicon_data/FunGuild/otu_table_top50.guilds.txt",
+                         header=TRUE,
+                         sep="\t",
+                         fill=TRUE,
+                         strip.white=TRUE)
+
+#looks good! now, let's do this but with the full ITS phyloseq
+
+```
+
+With the full ps
+
+```{r}
+
+#first check the format of the OTU table
+#rows should be taxa names and columns sample names
+head(otu_table(ps_ITS)) #ok
+otu <- as.data.frame(otu_table(ps_ITS))
+head(otu)
+
+#Then check the taxonomy table
+head(tax_table(ps_ITS)) #rows are ASVs and tax information is columns, ok
+tax <- as.data.frame(tax_table(ps_ITS))
+tax <- tax[,-8:-9] #let's delete the confidence column and ASV for now
+colnames_tax <- colnames(tax)
+
+#make a new df in which everything is in a single column
+#https://www.r-bloggers.com/2022/07/convert-multiple-columns-into-a-single-column-tidyr-part4/
+taxonomy <- tax %>% 
+            select(all_of(colnames_tax))%>%
+            unite(col="taxonomy", sep=';')
+
+#now I need to add this taxonomy column to the otu table 
+otu_table_ITS <- cbind(otu, taxonomy)
+otu_table_ITS$OTU_ID <- rownames(otu_table_ITS)
+
+otu_table_ITS <- otu_table_ITS %>% 
+                 relocate(OTU_ID) #place it in column 1
+
+#save it as a table
+write.table(otu_table_ITS, "amplicon_data/FunGuild/otu_table_ITS.txt",
+            sep="\t",
+            row.names=FALSE,
+            col.names = TRUE,
+            quote = FALSE)
+
+```
+
+After running it in the shell terminal with the python script (following https://github.com/UMNFuN/FUNGuild), let's see what we've got:
+
+```{r}
+
+guild_table_full <-read.delim("amplicon_data/FunGuild/otu_table_ITS.guilds.txt",
+                         header=TRUE,
+                         sep="\t",
+                         fill=TRUE,
+                         strip.white=TRUE)
+
+#keep only those with information (last 10 columns)
+guild_table_full <- guild_table_full[ , c(1, 124:133)]
+
+#save it 
+write.csv(guild_table_full, "amplicon_data/FunGuild/otu_table_ITS.guilds.csv")
+
+#check
+unique(guild_table_full$Trophic.Mode) #9 different ones 
+unique(guild_table_full$Guild) #148 different ones 
+
+guild <- as.data.frame(guild_table_full)
+guild <- guild %>%
+        select(-c(Citation.Source, taxonomy, Notes)) #let's remove these columns because annoying
+
+colnames(guild)[1] <- "ASV" #change it to ASV to merge it
+
+#make df again of taxonomy
+tax <- as.data.frame(tax_table(ps_ITS))
+
+#merge
+tax_guild <- left_join(tax, guild, by="ASV") #ok
+rownames(tax_guild) <- tax_guild$ASV
+
+tax_guild <- as.matrix(tax_guild)
+
+#put it back to ps
+tax_table(ps_ITS) <- tax_guild #done!
+
 ```
 
 ### By sample reads & non-informative ASVs
+
+First, by full ps
 ```{r}
+
+ps_ITS
 
 #Filtering by number of reads
 
 #quickly check on the number of reads 
-sums[order(sample_sums(ps_ITS))] #647 to 179,000
+sort(sample_sums(ps_ITS))
+sums[order(sample_sums(ps_ITS))] #652 to 179,000
 plot(sort(sample_sums(ps_ITS)))
 
 #see how many reads
@@ -1277,23 +1560,20 @@ median <- median(ps_ITS@sam_data$libsize_after_nonFungi) #116,633
 mean <- mean(ps_ITS@sam_data$libsize_after_nonFungi) #102,041.2
 stdev <- sd(ps_ITS@sam_data$libsize_after_nonFungi) #46,387.28
 
-#which will be the maximum of reads allowed if we keep mean +/- 2 stdev?
-mean + 1*stdev #194,815.8 ~ 195,000
-mean - 1*stdev #9,266.685  ~ 9,500
+#which will be the maximum of reads allowed if we keep mean +/- 1 stdev?
+mean + 1*stdev #148,428.8 ~ 150,000
+mean - 1*stdev #55,653 ~ 55,000
 
 #remove samples with low number of reads, removing those with less than 9,500 reads
 #and with more than 195,000 reads, roughly 2x stdev
-ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi > 9500) 
-ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi < 195000) #125 samples left 
+ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi > 50000) 
+ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi < 170000) #120 samples left, increasing to 170,000 
 
 #remove blanks
 ps_ITS <- subset_samples(ps_ITS, sample_or_blank != "blank") 
 
 #check number of reads 
 plot(sort(sample_sums(ps_ITS))) #looks a bit better, but still there are two samples with too low reads
-
-# 2_ITS and 117_ch_ITS, remove them;
-ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi > 50500) 
 
 #check final sequence lenght. ITS sequences smaller than 100bp should be discarded
 summary(ps_ITS@refseq@ranges@width)  
@@ -1314,7 +1594,101 @@ ps_ITS@sam_data$pct_reads_kept <- ((ps_ITS@sam_data$libsize_after_filtering/ps_I
 
 plot(sort(ps_ITS@sam_data$pct_reads_kept)) #lowest is 63%
 
+
+#save ps_ITS finally
+save(ps_ITS, file = "./Results/amplicon/pre_procesing/ps_ITS.RData")
+
 ```
+
+Now, split by experiment as for bacteria
+```{r}
+
+ps_ITS_filtering_finished
+ps_ITS_filtering_finished@sam_data$libsize_after_nonFungi
+
+#as they come from independent experiments, separate them to filter them independently
+ps_ITS_split <- phyloseq_sep_variable(ps_ITS_filtering_finished, variable="Experiment", drop_zeroes = T)
+
+#see how many reads
+median <- lapply(ps_ITS_split, function(ps){
+         median(ps@sam_data$libsize_after_nonFungi)}) #87,821 | 60,108 | 83,092 reads 
+  
+mean <- lapply(ps_ITS_split, function(ps){
+         mean(ps@sam_data$libsize_after_nonFungi)}) #111,779 | 61,805 | 81,678 reads   
+
+stdev <- lapply(ps_ITS_split, function(ps){
+         sd(ps@sam_data$libsize_after_nonFungi)}) #58,788 | 25,936 | 18,369 reads   
+    
+
+#which will be the maximum of reads allowed if we keep mean +/- 1 stdev?
+max <- mapply(function(x,y){x+2*y}, x=median, y=stdev)
+min <- mapply(function(x,y){x-2*y}, x=median, y=stdev)
+
+#remove samples with low number of reads, removing those with less than 10,000 reads
+#and with more than 200,000 reads, roughly 2x stdev
+
+#Phyto
+max[1]
+min[1] #no lower bound
+sort(sample_sums(ps_ITS_split$cond_phytohormones)) #however reads are very low, 49samples
+ps_ITS_split$cond_phytohormones <- subset_samples(ps_ITS_split$cond_phytohormones,#use less than 10,000 reads
+                                                  libsize_after_nonFungi > 10000) #18 samples lost
+
+#Insects
+max[2] #almost no upper bound, will keep it
+min[2] #~44,693
+sort(sample_sums(ps_ITS_split$cond_real_insects)) #48samples
+ps_ITS_split$cond_real_insects <- subset_samples(ps_ITS_split$cond_real_insects,#46 samples
+                                                  libsize_after_nonFungi > 45000) #2 samples lost 
+
+#EPG
+max[3] #158,728 ~160,000
+min[3] #~92,228.87
+sort(sample_sums(ps_ITS_split$EPG))
+ps_ITS_split$EPG <- subset_samples(ps_ITS_split$EPG,
+                                    libsize_after_nonFungi  < 160000) #2 samples lost 
+
+#remove blanks
+ps_ITS_split <- lapply(ps_ITS_split, function(ps){
+  subset_samples(ps, sample_or_blank != "blank") }) #43,45,48 left
+
+#remove ASVs with low-length sequences
+#check final sequence length. 16S sequences smaller than 380bp should be discarded
+lapply(ps_ITS_split, function(ps){summary(ps@refseq@ranges@width)})
+
+#remove the ones smaller than 100bp
+ps_ITS_split <- lapply(ps_ITS_split, function(ps){
+  prune_taxa(taxa = as.data.frame(refseq(ps)@ranges)$width>100, x = ps)})
+
+#remove those ASVs with now 0 reads 
+ps_ITS_split <- lapply(ps_ITS_split, function(ps){
+  prune_taxa(taxa_sums(ps) >0, ps)})
+
+#let's see how many sequences were kept after this filtering
+#add column to sample_data
+ps_ITS_split <- lapply(ps_ITS_split, function(ps){
+  ps@sam_data$libsize_after_filtering <- sample_sums(ps)
+  return(ps)
+})
+
+#check how many reads were kept at the end
+ps_ITS_split <- lapply(ps_ITS_split, function(ps){
+  ps@sam_data$pct_reads_kept <- ((ps@sam_data$libsize_after_filtering/ps@sam_data$total_reads)*100)
+  return(ps)
+})
+
+#plot histograms
+lapply(ps_ITS_split, function(ps){
+  hist(ps@sam_data$pct_reads_kept)})
+
+#save it
+save(ps_ITS_split, file = "./amplicon_data/Phyloseq_objects/ps_ITS_split.RData")
+```
+
+
+
+
+
 
 Visualize it
 ```{r}
@@ -1390,7 +1764,7 @@ rm(ps_ITS_cont, ps_ITS_un, df_metadata, df_ITS, contamdf.both, contaminant_ASV,p
 ```{r}
 
 tax <- as.data.frame(tax_table(ps_ITS))
-which(is.na(tax$Phylum)) #234 ASVs are NA at Phylum level
+which(is.na(tax$Phylum)) #286 ASVs are NA at Phylum level
 
 Phylum_NA <- rownames(tax)[which(is.na(tax$Phylum))] #get which ones 
 
@@ -1516,6 +1890,8 @@ I still need to:
 *make the filtering per experiment (this will be independent according to the type of analysis)
 
 *Blast it with funGuild
+
+
 
 #FunGuild
 ```{r}
