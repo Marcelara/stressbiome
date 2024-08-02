@@ -1,0 +1,26 @@
+---
+title: "Differential abundance"
+author: "Marcela Aragon"
+date: "2024-08-02"
+output: html_document
+---
+
+Continue with differential abundance analysis, one per experiment as you've been doing. Follow the same code that you already have, don't get creative!!
+
+Use the ps_ITS object in Results/pre-procesing ITS and that one split it by experiment, it's not a big deal at this point that the filtering was not done by experiment as probably the same samples are going to be missing. Later with time, come back to the ps_ITS, for now it is forbidden!! 
+
+Test
+```{r}
+
+library(microbiomeutilities)
+library(ggtern)
+p16S_family
+
+x <- prep_ternary(p16S_exp$cond_real_insects, group="plant_pathway_induced", abund.thres = 0.0001,
+                  prev.thres = 0.1, level="Family")
+
+y <-ggtern(x, aes(JA, SA, control))
+y+geom_point()
+
+```
+

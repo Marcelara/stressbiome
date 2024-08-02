@@ -544,24 +544,45 @@ table <- nice_table(df_summ,
               title = c("Table X. Summary for 16S"))
 flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/summary_16S.docx")
 
-
-
 #get sample data df 
 sample_data <- as.data.frame(sample_data(ps_16S))
 
-#split by experiment 
-p16S_exp <- phyloseq_sep_variable(ps_16S, variable="Experiment", drop_zeroes = T)
+
+#Load 16S split by experiment
+load(file = "./amplicon_data/Phyloseq_objects/ps_16S_split.RData")
+p16S_exp <- ps_16S_split
 p16S_exp <- p16S_exp[-3] #let's remove EPG for now
 
 #check sample sums
 lapply(p16S_exp, function(ps){sort(sample_sums(ps))}) 
 
+#Melissa's median transformation
+#total = median(sample_sums(physeq_f_unnorm))
+#standf = function(x, t=total) round(t * (x / sum(x)))
+#physeq_msd = transform_sample_counts(physeq_f_unnorm, standf)
+
+#let's do this analysis at family level
+p16S_family <- lapply(p16S_exp, function(ps){
+  ps <- tax_glom(ps, taxrank="Family")
+  return(ps)
+})
+
+
+#transform counts with median transformation
+p16S_family2 <- lapply(p16S_family, function(ps){
+  total <- median(sample_sums(ps))
+  standf <- function(x, t=total) round(t * (x / sum(x)))
+  physeq_msd = transform_sample_counts(ps, standf)
+  print(head(sample_sums(physeq_msd)))
+  return(physeq_msd)
+})
+
 #rarefy to even depth
-p16S_exp_rar <-lapply(p16S_exp, function(ps){
+#p16S_exp_rar <-lapply(p16S_exp, function(ps){
   rarefy_even_depth(ps, sample.size = min(sample_sums(ps)),
   rngseed = 123, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)})
 
-lapply(p16S_exp_rar, function(ps){ sample_sums(ps)}) 
+#lapply(p16S_exp_rar, function(ps){ sample_sums(ps)}) 
 #49,633 reads for Phyto
 #20,706 reads for Insects
 
@@ -571,6 +592,8 @@ More or less same replicates
 
 ##Alpha diversity
 ```{r}
+
+p16S_exp_rar <-p16S_family2
 
 #plot it
 p <- lapply(p16S_exp_rar, function(ps){plot_richness(ps, x= "plant_pathway_induced", scales="free_y")})

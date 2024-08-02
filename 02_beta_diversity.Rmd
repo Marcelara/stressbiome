@@ -1,9 +1,12 @@
 ---
-title: "Alpha diversity"
+title: "Beta diversity"
 author: "Marcela Aragon"
 date: "31/07/2024"
 output: html_document
 ---
+
+Continue with differential abundance analysis, one per experiment as you've been doing. Follow the same code that you already have, don't get creative!!
+
 
 This script will deal with calculating beta diversity for 16S and ITS 
 
@@ -640,20 +643,31 @@ Lesson learned from ITS; focus on Bray-Curtis and Unifrac
 
 ##Loading data
 #16S
-load(file = "./Results/amplicon/pre_procesing/ps_16S.RData")
+load(file = "./amplicon_data/Phyloseq_objects/ps_16S.RData")
 ps_16S
 
+#16S split by experiment
+load(file = "./amplicon_data/Phyloseq_objects/ps_16S_split.RData")
+
+```
+
+Apply filtering by abundance and prevalence
+```{r}
 #Add ASV name in taxonomy table
 t <- as.data.frame(tax_table(ps_16S))
 t$ASV <- rownames(t)
 tax_table(ps_16S) <- tax_table(object = as.matrix(t))
 
-#split by experiment 
-Bac_exp <- phyloseq_sep_variable(ps_16S, variable="Experiment", drop_zeroes = T)
-Bac_exp <- Bac_exp[-3] #let's remove EPG for now
+#Add it also to the split ones
+ps_16S_split <- lapply(ps_16S_split, function(ps){
+  t <- as.data.frame(tax_table(ps))
+  t$ASV <- rownames(t)
+  tax_table(ps) <- tax_table(object = as.matrix(t))
+  return(ps)
+})
 
 #Apply filtering to remove low prevalence and abundant ASVs to calculate and plot beta-diversity
-asvs_to_keep <- lapply(Bac_exp, function(ps){
+asvs_to_keep <- lapply(ps_16S_split, function(ps){
   
   ra_ps <- transform_sample_counts(ps, function(x) x/sum(x))#change it to relative abundance
   ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.0001, prune = TRUE)#filter out less than 0.001%
@@ -665,41 +679,50 @@ asvs_to_keep <- lapply(Bac_exp, function(ps){
 })
 
 #make a copy
-Bac_exp_f <- Bac_exp
-lapply(Bac_exp, function(x) mean(taxa_sums(x)))
+Bac_exp_f <- ps_16S_split
+lapply(ps_16S_split, function(x) mean(taxa_sums(x)))
 
 #filter out phyloseq object
-Bac_exp_f$cond_phytohormones <- subset_taxa(Bac_exp$cond_phytohormones,
+Bac_exp_f$cond_phytohormones <- subset_taxa(ps_16S_split$cond_phytohormones,
                                             ASV %in% asvs_to_keep$cond_phytohormones)
 
-Bac_exp_f$cond_real_insects <- subset_taxa(Bac_exp$cond_real_insects,
+Bac_exp_f$cond_real_insects <- subset_taxa(ps_16S_split$cond_real_insects,
                                             ASV %in% asvs_to_keep$cond_real_insects)
+
+Bac_exp_f$EPG <- subset_taxa(ps_16S_split$cond_real_insects,
+                                            ASV %in% asvs_to_keep$EPG)
 
 #final check
 Bac_exp_f #ok
 
 #see how many reads were kept
-sum(taxa_sums(Bac_exp_f$cond_phytohormones))/sum(taxa_sums(Bac_exp$cond_phytohormones)) 
+sum(taxa_sums(Bac_exp_f$cond_phytohormones))/sum(taxa_sums(ps_16S_split$cond_phytohormones)) 
 mean(taxa_sums(Bac_exp_f$cond_phytohormones))
 mean(sample_sums(Bac_exp_f$cond_phytohormones))
 #89% phyto with final average of 1,103 reads per ASV and 83,801.93 reads per sample
 
-sum(taxa_sums(Bac_exp_f$cond_real_insects))/sum(taxa_sums(Bac_exp$cond_real_insects)) 
+sum(taxa_sums(Bac_exp_f$cond_real_insects))/sum(taxa_sums(ps_16S_split$cond_real_insects)) 
 mean(taxa_sums(Bac_exp_f$cond_real_insects))
 mean(sample_sums(Bac_exp_f$cond_real_insects))
 #91% insects final average of 1,459 reads per ASV and 60,110.14 reads per sample
 
+sum(taxa_sums(Bac_exp_f$EPG))/sum(taxa_sums(ps_16S_split$EPG)) 
+mean(taxa_sums(Bac_exp_f$EPG))
+mean(sample_sums(Bac_exp_f$EPG))
+#66% insects final average of 1,006 reads per ASV and 60,177 reads per sample
+
+
 #check sparsity through the process
 summarize_phyloseq(ps_16S)[[6]] #97%
-lapply(Bac_exp, function(ps) summarize_phyloseq(ps)[[6]])#92
-lapply(Bac_exp_f, function(ps) summarize_phyloseq(ps)[[6]])#63-64%
+lapply(ps_16S_split, function(ps) summarize_phyloseq(ps)[[6]])#92
+lapply(Bac_exp_f, function(ps) summarize_phyloseq(ps)[[6]])#63-64 and 74%
 
 #### Do the same but with the full ps ####
 #remove EPG
 #make a copy
 ps_Bac_f <- ps_16S
-ps_Bac_f <- subset_samples(ps_Bac_f, Experiment %in% c("cond_real_insects", "cond_phytohormones"))
-ps_Bac_f <- prune_taxa(taxa_sums(ps_Bac_f) >0, ps_Bac_f)
+#ps_Bac_f <- subset_samples(ps_Bac_f, Experiment %in% c("cond_real_insects", "cond_phytohormones"))
+#ps_Bac_f <- prune_taxa(taxa_sums(ps_Bac_f) >0, ps_Bac_f)
 
 #Get ASVs to keep
 ra_ps <- transform_sample_counts(ps_Bac_f, function(x) x/sum(x))#change it to relative abundance
@@ -712,10 +735,10 @@ length(asvs) #get how many
 ps_Bac_f <- subset_taxa(ps_Bac_f, ASV %in% asvs)
 
 #see how many reads were kept
-sum(taxa_sums(ps_Bac_f))/sum(taxa_sums(ps_16S)) 
+sum(taxa_sums(ps_Bac_f))/sum(taxa_sums(ps_16S)) #89%
 mean(taxa_sums(ps_Bac_f))
 mean(sample_sums(ps_Bac_f))
-#56% with final average of 2,398 reads per ASV and 70,913.66 reads per sample 
+#89% with final average of 3,808 reads per ASV and 71,508 reads per sample 
 
 #clean
 rm(asvs_to_keep, ra_ps, ra_f, p_f, asvs,t)
@@ -740,10 +763,10 @@ head(otu_table(ps_Bac_css))#ok
 #calculate distance matrix, using 2 different indexes
 
 #Bray-Curtis
-bray <- lapply(Bac_CSS, function(ps){ distance(ps, "bray")})
+bray <- lapply(Bac_CSS, function(ps){ phyloseq::distance(ps, "bray")})
 
 #Unifrac
-uni <- lapply(tree, function(ps){ distance(ps, "unifrac")}) #problem
+uni <- lapply(Bac_CSS, function(ps){ phyloseq::distance(ps, "unifrac")}) #problem
 
 # there is a problem because the roots of the trees were probably prunned in the filtering step
 # and then it goes a bit crazy, solution is to re-root or resolve multicotomies 
@@ -759,7 +782,7 @@ Bac_CSS <- lapply(Bac_CSS, function(ps){
 }) #replace tree for the fixed one
 
 #Now, run unifrac distances
-uni <- lapply(Bac_CSS, function(ps){ distance(ps, "unifrac")}) #ok
+uni <- lapply(Bac_CSS, function(ps){ phyloseq::distance(ps, "unifrac")}) #ok
 
 ```
 
@@ -988,6 +1011,9 @@ rm(centroids, centroids_UMAP, segments, segments_UMAP, df_UMAP, df_NMDS)#df's
 
 ```
 
+
+
+
 ##PERMANOVA
 ```{r}
 
@@ -999,7 +1025,7 @@ df_info_16S
 set.seed(123)
 
 perm_full_bray <- adonis2(formula=distance(ps_Bac_css, "bray") 
-                          ~ Experiment +plant_pathway_induced + libsize_after_filtering,
+                          ~ Experiment + plant_pathway_induced + libsize_after_filtering,
                      data=as(sample_data(ps_Bac_css), "data.frame"),
                      permutations = 999, by="margin") #no
 
@@ -1030,7 +1056,6 @@ flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/full_permanova
 
 ```
 
-Make plot with Expermiments together (later!!)
 
 ```{r}
 #I need this to test both experiments independently
@@ -1044,7 +1069,7 @@ set.seed(123)
 #Bray-Curtis
 perm_Byexp_bray <- lapply(Bac_CSS, function(ps){
           set.seed(123)
-          perm <- adonis2(formula=distance(ps, "bray") 
+          perm <- adonis2(formula=phyloseq::distance(ps, "bray") 
                           ~ plant_pathway_induced,
                      data=as(sample_data(ps), "data.frame"),
                      permutations = 999, by="margin")
@@ -1058,7 +1083,7 @@ perm_Byexp_bray <- perm_Byexp_bray %>% mutate(distance="Bray-Curtis") %>% reloca
 #Unifrac
 perm_Byexp_uni <- lapply(Bac_CSS, function(ps){
           set.seed(123)
-          perm <- adonis2(formula=distance(ps, "unifrac") 
+          perm <- adonis2(formula=phyloseq::distance(ps, "unifrac") 
                           ~ plant_pathway_induced,
                      data=as(sample_data(ps), "data.frame"),
                      permutations = 999, by="margin")
@@ -1080,14 +1105,14 @@ flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/permanova_ITS.
 #save df just in case 
 write.table(permanova_Byexp, "./Data_frames/02_beta_diversity/permanova_byexperiment_16S.tsv", quote = F, row.names = F, sep = "\t")
 
-#Now, get pairwise differences but just for insects experiment
+#Now, get pairwise differences but just for insects experiment, unifrac
 #which treatments are different from each other?
-pairwise_bray <- adonis.pair(dist.mat= distance(Bac_CSS$cond_real_insects, "bray"),
+pairwise_bray <- adonis.pair(dist.mat= phyloseq::distance(Bac_CSS$cond_real_insects, "bray"),
                  Factor =as.factor(as(sample_data(Bac_CSS$cond_real_insects),
                                       "data.frame")$plant_pathway_induced),
                  nper=1000,corr.method="fdr")#Ctrl vs JA
 
-pairwise_uni <- adonis.pair(dist.mat= distance(Bac_CSS$cond_real_insects, "unifrac"),
+pairwise_uni <- adonis.pair(dist.mat= phyloseq::distance(Bac_CSS$cond_real_insects, "unifrac"),
                  Factor = as.factor(as(sample_data(Bac_CSS$cond_real_insects),
                                        "data.frame")$plant_pathway_induced),
                  nper=1000,corr.method="fdr")#Ctrl vs JA
@@ -1118,13 +1143,6 @@ For fungi, treatment had an effect on the composition of the community when usin
 *I still need to make the filtering by experiment
 *run alpha diversity analysis at Family level (perhaps more informative)
 *Make a ternary plot (perhaps also at family level)
-
-
-
-
-
-
-
 
 
 
