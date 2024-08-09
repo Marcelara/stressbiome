@@ -294,8 +294,8 @@ min(sums)
 names(sums[order(sums)][1]) #123_ch
 
 #let's remove it so there's no problems after
-ps_16S <- subset_samples(ps_16S, Harvest_ID != "123_ch")
-prune_taxa(taxa_sums(ps_16S ) >0, ps_16S)
+#ps_16S <- subset_samples(ps_16S, Harvest_ID != "123_ch")
+#prune_taxa(taxa_sums(ps_16S ) >0, ps_16S)
 
 ```
 
@@ -306,109 +306,6 @@ prune_taxa(taxa_sums(ps_16S ) >0, ps_16S)
 Following: https://benjjneb.github.io/decontam/vignettes/decontam_intro.html, https://mcic-osu.github.io/2020-12-microbiomics-workshop/08-postASV-analysis.html & parts of Pedro's script
 
 The decontam package tests whether abundance of a certain taxa is not associated with DNA concentration. Because DNA concentration measurements are not very accurate and we want to remove possible contaminants we use a relaxed p value following the Microbiomics Workshop
-
-#### [delete]By Frequency
-```{r}
-
-# 1.Identify contamination by 'frequency' keeping each run independently by Experiment
-contamdf.freq <- isContaminant(ps_16S, method="frequency",
-                               conc="Amplicon_concentation_ngul",
-                               threshold=0.2,
-                               batch="Experiment")
-
-head(contamdf.freq)
-table(contamdf.freq$contaminant) #773 ASVs contaminants 
-
-#check which taxa are contaminants
-ps_contam <- prune_taxa(contamdf.freq$contaminant, ps_16S)
-tax_table(ps_contam) #not lots of most abundant ASVs
-sort(table(tax_table(ps_contam)[, 2]), decreasing=TRUE) #most of them proteobacteria
-
-plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
-
-ggsave("Bac.raw_contamASVs.png", path = "./Plots/00_amplicon_preprocessing/",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
-
-#plot frequency of contaminants ASVs vs DNA concentration
-plot_frequency(ps_16S, taxa_names(ps_16S)[sample(which(contamdf.freq$contaminant),40)], conc="Amplicon_concentation_ngul")+
-  xlab("DNA concentration (ngul)")+
-  ggtitle("Contaminant ASVs-Frequency")
-
-#Which samples have the highest abundance of contaminants?
-p_cont <- plot_bar(ps_contam, fill="Phylum")
-
-p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
-  ggtitle("samples with the highest abundance of contaminants (773 ASVs)")
-
-ggsave("Bac.raw_freq-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
-
-#What proportion of our count data were removed as contaminants?
-ps_noncontam <- prune_taxa(!contamdf.freq$contaminant, ps_16S)
-
-pre <- sum(sample_sums(ps_16S))
-post <- sum(sample_sums(ps_noncontam))
-
-(pre-post) / pre #only 0.026%
-
-#names of ASVs
-contaminants.freq <- rownames(subset(contamdf.freq, contaminant%in%c("TRUE")))
-
-```
-
-* Most of the contaminant ASVs are proteobacteria. There's more abundance in the Phyto experiment compared to Insects and EPG
-
-#### [delete]By Prevalence
-```{r}
-# 2.Identify contaminants by 'Prevalence' in the Blank samples
-
-ps_16S@sam_data$is.neg <- ps_16S@sam_data$Stress=="Blank" #makes new column with 'TRUE' just for blanks
-
-contamdf.prev <- isContaminant(ps_16S, method="prevalence",
-                               neg="is.neg",
-                               threshold=0.5, #increased as recommended in Decontam
-                               batch="Experiment") #keeps each sequencing run independently
-
-table(contamdf.prev$contaminant) #61 ASVs contaminants     
-
-## Check which taxa are contaminants:
-ps_contam <- prune_taxa(contamdf.prev$contaminant, ps_16S)
-tax_table(ps_contam) #lots of most abundant ASVs
-sort(table(tax_table(ps_contam)[, 2]), decreasing=TRUE) #proteobacteria as well but lot less
-
-plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
-
-ggsave("Bac.raw_contamASVs_prevalence.png", path = "./Plots/00_amplicon_preprocessing/",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.4)
-
-#plot frequency of contaminant ASVs vs DNA concentration
-plot_frequency(ps_16S, taxa_names(ps_16S)[sample(which(contamdf.prev$contaminant),20)],
-               conc="Amplicon_concentation_ngul")+
-               xlab("DNA concentration (ngul)") #this looks much more like contaminants
-
-#Which samples have the highest abundance of contaminants?
-p_cont <- plot_bar(ps_contam, fill="Phylum")
-
-p_cont + facet_wrap(~Experiment, nrow=1, scales="free_x") +
-  ggtitle("samples with the highest abundance of contaminants by prevalence (61 ASVs)")
-
-ggsave("Bac.raw_prev-contam_BySample.png", path = "./Plots/00_amplicon_preprocessing/",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
-
-#What proportion of our count data were removed as contaminants?
-ps_noncontam <- prune_taxa(!contamdf.prev$contaminant, ps_16S)
-
-pre <- sum(sample_sums(ps_16S))
-post <- sum(sample_sums(ps_noncontam))
-
-(pre-post) / pre #only 0.028%
-
-#names of ASVs
-contaminants.prev <- rownames(subset(contamdf.prev, contaminant%in%c("TRUE")))
-
-```
-
-
 
 #### Both
 
@@ -431,11 +328,6 @@ table(contamdf.both$contaminant) #379 ASVs contaminants
 ps_contam <- prune_taxa(contamdf.both$contaminant, ps_16S)
 tax_table(ps_contam) #lots of most abundant ASVs
 sort(table(tax_table(ps_contam)[, 2]), decreasing=TRUE) 
-
-plot_bar(ps_contam, "Phylum", fill="Class", facet_grid=~Experiment)
-
-ggsave("Bac.raw_contamASVs_both.png", path = "./Plots/00_amplicon_preprocessing/",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #plot frequency of contaminant ASVs vs DNA concentration
 plot_frequency(ps_16S, taxa_names(ps_16S)[sample(which(contamdf.both$contaminant),40)],
@@ -495,7 +387,7 @@ plot(sort(sample_sums(ps_16S))) #still some samples with very few reads and lots
 #make new column with this information
 ps_16S@sam_data$libsize_after_decontam <- sample_sums(ps_16S)
 
-sort(ps_16S@sam_data$libsize_after_decontam) #2 samples with very low reads 
+sort(ps_16S@sam_data$libsize_after_decontam) #3 samples with very low reads 
 
 #clean
 rm(contamdf.freq, contamdf.both, contamdf.prev, pre, post, sums,
@@ -521,19 +413,19 @@ ps_16S #64,238 taxa
 #First, visualize plastid reads
 
 #chloroplast
-p_Chloro <- plot_bar(subset_taxa(ps_16S, Order==" o__Chloroplast"), fill="Species")
-p_Chloro + facet_wrap(~Experiment, nrow=1, scales="free_x") +
-  ggtitle("Chloroplast contamination")
+#p_Chloro <- plot_bar(subset_taxa(ps_16S, Order==" o__Chloroplast"), fill="Species")
+#p_Chloro + facet_wrap(~Experiment, nrow=1, scales="free_x") +
+#  ggtitle("Chloroplast contamination")
 
-ggsave("Bac.Chloroplast-contam.png", path = "./Plots/00_amplicon_preprocessing/",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
+#ggsave("Bac.Chloroplast-contam.png", path = "./Plots/00_amplicon_preprocessing/",
+#         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #mitochondria
-p_Mito <- plot_bar(subset_taxa(ps_16S, Family==" f__Mitochondria"), fill="Species")
-p_Mito + facet_wrap(~Experiment, nrow=1, scales="free_x") +
-  ggtitle("Mitochondria contamination")
+#p_Mito <- plot_bar(subset_taxa(ps_16S, Family==" f__Mitochondria"), fill="Species")
+#p_Mito + facet_wrap(~Experiment, nrow=1, scales="free_x") +
+#  ggtitle("Mitochondria contamination")
 
-ggsave("Bac.Mitochondria-contam.png", path = "./Plots/00_amplicon_preprocessing/",
+#ggsave("Bac.Mitochondria-contam.png", path = "./Plots/00_amplicon_preprocessing/",
          width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #clean 
@@ -616,16 +508,11 @@ stdev <- sd(ps_16S@sam_data$libsize_after_plastid) #43,618.86
 mean + 2*stdev #172,646.7 ~ 173,000
 mean - 2*stdev #-1,828 
 
-#remove samples with low number of reads, removing those with less than 10,000 reads
-#and with more than 200,000 reads, roughly 2x stdev
-#as it jumps from 59 to 16,474 and continues to increase.
+#for now, just remove samples with low number of reads, removing those with less than 10,000 reads
 ps_16S <- subset_samples(ps_16S, libsize_after_plastid > 10000) 
-ps_16S <- subset_samples(ps_16S, libsize_after_plastid < 200000) 
 
 #remove blanks
-#ps_16S <- subset_samples(ps_16S, sample_or_blank != "blank") 
-ps_16S_split <- lapply(ps_16S_split, function(ps){
-  subset_samples(ps, sample_or_blank != "blank") }) #43,45,48 left
+ps_16S <- subset_samples(ps_16S, sample_or_blank != "blank") 
 
 #remove ASVs with low-length sequences
 #check final sequence length. 16S sequences smaller than 380bp should be discarded
@@ -637,95 +524,27 @@ ps_16S<- prune_taxa(taxa = as.data.frame(refseq(ps_16S)@ranges)$width>380,
                       x = ps_16S) #431 ASVs removed
 
 #remove those ASVs with now 0 reads 
-prune_taxa(taxa_sums(ps_16S) >0, ps_16S)
+prune_taxa(taxa_sums(ps_16S) >0, ps_16S) #48,625 taxa
 
 #let's see how many sequences were kept after this filtering
-sum(sample_sums(ps_16S))/sum(sample_sums(ps_16S_filtering))*100 # 86.6% of sequences kept
+sum(sample_sums(ps_16S))/sum(sample_sums(ps_16S_filtering))*100 # 99.41% of sequences kept
 
 #add column to sample_data
 ps_16S@sam_data$libsize_after_filtering <- sample_sums(ps_16S)
 
-#check how many reads were kept at the end
+#add how many reads were kept at the end
 ps_16S@sam_data$pct_reads_kept <- ((ps_16S@sam_data$libsize_after_filtering/ps_16S@sam_data$total_reads)*100)
+
+#check
 hist(ps_16S@sam_data$pct_reads_kept)
 
 ```
 
-Now, independently by experiment
+Now, save a split ps by experiment
 ```{r }
-
 
 #as they come from independent experiments, separate them to filter them independently
 ps_16S_split <- phyloseq_sep_variable(ps_16S, variable="Experiment", drop_zeroes = T)
-
-#see how many reads
-median <- lapply(ps_16S_split, function(ps){
-         median(ps@sam_data$libsize_after_plastid)}) #87,821 | 60,108 | 83,092 reads 
-  
-mean <- lapply(ps_16S_split, function(ps){
-         mean(ps@sam_data$libsize_after_plastid)}) #111,779 | 61,805 | 81,678 reads   
-
-stdev <- lapply(ps_16S_split, function(ps){
-         sd(ps@sam_data$libsize_after_plastid)}) #58,788 | 25,936 | 18,369 reads   
-    
-
-#which will be the maximum of reads allowed if we keep mean +/- 2 stdev?
-max <- mapply(function(x,y){x+2*y}, x=median, y=stdev)
-min <- mapply(function(x,y){x-2*y}, x=median, y=stdev)
-
-#remove samples with low number of reads, removing those with less than 10,000 reads
-#and with more than 200,000 reads, roughly 2x stdev
-
-#Phyto
-max[1]
-min[1] #no lower bound
-sort(sample_sums(ps_16S_split$cond_phytohormones))
-ps_16S_split$cond_phytohormones <- subset_samples(ps_16S_split$cond_phytohormones,
-                                                  libsize_after_plastid < 210000) #6 samples lost 
-
-#Insects
-max[2] #almost no upper bound, will keep it
-min[2] #~10,000
-sort(sample_sums(ps_16S_split$cond_real_insects))
-ps_16S_split$cond_real_insects <- subset_samples(ps_16S_split$cond_real_insects,
-                                                  libsize_after_plastid > 8235) #2 samples lost 
-
-#EPG
-max[3] #~120,000
-min[3] #~46,352
-sort(sample_sums(ps_16S_split$EPG))
-ps_16S_split$EPG <- subset_samples(ps_16S_split$EPG,
-                                                  libsize_after_plastid > 46352) #1 sample lost, blank 
-
-
-#remove blanks
-ps_16S_split <- lapply(ps_16S_split, function(ps){
-  subset_samples(ps, sample_or_blank != "blank") }) #43,45,48 left
-
-#remove ASVs with low-length sequences
-#check final sequence length. 16S sequences smaller than 380bp should be discarded
-lapply(ps_16S_split, function(ps){summary(ps@refseq@ranges@width)})
-
-#remove the ones smaller than 380bp
-ps_16S_split <- lapply(ps_16S_split, function(ps){
-  prune_taxa(taxa = as.data.frame(refseq(ps)@ranges)$width>380, x = ps)})
-
-#remove those ASVs with now 0 reads 
-ps_16S_split <- lapply(ps_16S_split, function(ps){
-  prune_taxa(taxa_sums(ps) >0, ps)})
-
-#let's see how many sequences were kept after this filtering
-#add column to sample_data
-ps_16S_split <- lapply(ps_16S_split, function(ps){
-  ps@sam_data$libsize_after_filtering <- sample_sums(ps)
-  return(ps)
-})
-
-#check how many reads were kept at the end
-ps_16S_split <- lapply(ps_16S_split, function(ps){
-  ps@sam_data$pct_reads_kept <- ((ps@sam_data$libsize_after_filtering/ps@sam_data$total_reads)*100)
-  return(ps)
-})
 
 #plot histograms
 lapply(ps_16S_split, function(ps){
@@ -801,8 +620,6 @@ ps_16S #61,295
 save(ps_16S, file = "./amplicon_data/Phyloseq_objects/ps_16S.RData")
 
 #clean
-rm(ps_16S_raw, ps_16S_decontam, ps_16S_plastid, ps_16S_filtering, plot_Bac)
-
 rm.all.but(keep=c("ps_16S", "ps_16S_split"), keep_functions = TRUE)
 
 ```
