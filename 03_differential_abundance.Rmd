@@ -9,18 +9,198 @@ Continue with differential abundance analysis, one per experiment as you've been
 
 Use the ps_ITS object in Results/pre-procesing ITS and that one split it by experiment, it's not a big deal at this point that the filtering was not done by experiment as probably the same samples are going to be missing. Later with time, come back to the ps_ITS, for now it is forbidden!! 
 
-Test
+#Load libraries
+
 ```{r}
 
-library(microbiomeutilities)
-library(ggtern)
-p16S_family
+#Load libraries
 
-x <- prep_ternary(p16S_exp$cond_real_insects, group="plant_pathway_induced", abund.thres = 0.0001,
-                  prev.thres = 0.1, level="Family")
+#microbiome data
+library(phyloseq)
+library(microbiome)
+library(metagMisc)
+library(metagenomeSeq)#CSS normalization
+library(vegan)
+library(ape)
 
-y <-ggtern(x, aes(JA, SA, control))
-y+geom_point()
+#data handling
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(readxl)
+library(purrr) #melts df of lists into a single one
+library(varhandle)
+
+#stats
+library(stats) #stats
+library(rempsyc) #tables
+library(scales)#rounds p value
+library(EcolUtils) #pairwise Adonis
+
+#ploting
+library(ggpubr)
+library(ggplot2)
+library(RColorBrewer) #nice colors for plots
+library(UpSetR)
+library(ComplexHeatmap)
+library(scran)
+library(cowplot)
+library(VennDiagram)
+library(pscl)
+library(MASS)
+library(phytools)
+library(VennDiagram)
+
+#Differential Abundance
+library(ANCOMBC) #ANCOM
 
 ```
+
+## Settings for plots
+```{r}
+
+#Set plots theme
+ggplot2::theme_set(theme_bw())
+
+#Set colors
+color_stress <- c("#BFBFBF", "#E69F00", "#4472C4")
+color_experiment <- c("#CC3399", "#70AD47")
+
+color_ctrl_vs_JA <- c("#BFBFBF", "#E69F00")
+color_ctrl_vs_SA <- c("#BFBFBF",  "#4472C4")
+color_JA <- "#E69F00"
+color_SA <- "#4472C4"
+color_experiment <- c("#CC3399", "#70AD47")
+fonts <- windowsFonts()
+
+```
+
+#16S
+
+```{r}
+#Load data
+
+#16S
+load(file = "./amplicon_data/Phyloseq_objects/ps_16S_split.RData")
+ps_16S_split
+
+```
+
+
+##Pre-filtering
+
+```{r}
+#First, make a pre-filtering of those taxa that are low in prevalence (<20%)
+
+ps_16S_filt <- lapply(ps_16S_split, function(ps){
+  metagMisc::phyloseq_filter_prevalence(ps, prev.trh = 0.20, #at least 20% of samples
+                                          abund.trh = NULL) #no filtering by abundance
+})
+
+#check
+ps_16S_filt #less than 2,000 taxa
+
+```
+
+##ANCOM
+```{r}
+
+set.seed(123)
+
+
+ancom <- lapply(ps_16S_split, function(ps){
+  set.seed(123)
+  ANCOMBC::ancombc(phyloseq = ps, 
+                      formula = "plant_pathway_induced", 
+                      p_adj_method = "fdr", #same as "BH" Benjamini & Hochberg
+                      prv_cut = 0.20,
+                      group = "plant_pathway_induced", 
+                      struc_zero = TRUE, #with structural zero's
+                      neg_lb = FALSE, #classifies structural zero's if it's zero and not its asymptotic lower bound 
+                      tol = 1e-5,               
+                      max_iter = 100, 
+                      conserve = TRUE, #conservative variance of the test statistics 
+                      alpha = 0.05,
+                      verbose=TRUE,
+                      global=FALSE)})
+
+save(ancom, file = "./Results/03_differential_abundance/ancom_16S.Rdata")
+
+```
+
+Get results 
+```{r}
+
+head(ancom$cond_phytohormones$feature_table)
+
+#check
+lapply(ancom, function(ancom_result){head(ancom_result$res$lfc)})#LFC
+lapply(ancom, function(ancom_result){head(ancom_result$res$se)})#standard error
+lapply(ancom, function(ancom_result){head(ancom_result$res$W)}) #test statistic LFC/se
+
+#get sample fractions
+samp_frac <- lapply(ancom, function(ancom_result){ancom_result$samp_frac})#ancom$samp_frac
+
+# Get log transformed counts and add pseudo-count (1) to feature table to avoid taking the log of 0
+log_obs_abn <-lapply(ancom, function(ancom_result){log(ancom_result$feature_table +1)})
+
+# Adjust the log observed abundances with the sample fraction
+log_corr_abn <-mapply(function(x,y){
+                     t(t(x) - y)},
+                     x=log_obs_abn,
+                     y=samp_frac)
+  
+#Results
+log_corr_abn #bias-corrected log abundances
+lfc <- lapply(ancom, function(ancom_result){ancom_result$res$lfc}) #log-fold change according to control 
+se_lfc <- lapply(ancom, function(ancom_result){ancom_result$res$se}) #standard error of log-fold change
+
+#get significant ASVs   
+JA_asvs <- lapply(ancom, function(ancom_result){
+           asvs <- ancom_result$res$diff_abn %>%
+            dplyr::filter(plant_pathway_inducedJA == TRUE) #26,12,8
+           asvs$ASV <- asvs$taxon
+           return(asvs)})
+
+SA_asvs <- lapply(ancom, function(ancom_result){
+           asvs <- ancom_result$res$diff_abn %>%
+            dplyr::filter(plant_pathway_inducedSA == TRUE) #9,4,10
+           asvs$ASV <- asvs$taxon
+           return(asvs)})
+
+#Now I need to get the unique names 
+sig_asvs <- mapply(function(x,y){
+  c(x$ASV, y$ASV)},
+  x=JA_asvs,
+  y=SA_asvs)
+
+#make it into a dataframe format
+sig_asvs <- lapply(sig_asvs, function(x){
+   unique <- unique(x)
+   unique <- as.data.frame(unique)
+   colnames(unique) <- "ASV"
+   return(unique)})  
+
+#With this I can slice the different data frames to plot them
+
+#1.bias-corrected abundances
+log_corr_abn_sig <- mapply(function(x,y){x[y$ASV,]},
+  x=log_corr_abn,
+  y=sig_asvs) #works because its a matrix 
+
+#2.log-fold change vs controls
+lfc_sig <- mapply(function(x,y){x[x$taxon %in% y$ASV,]},
+                  x=lfc,
+                  y=sig_asvs,
+                  SIMPLIFY = FALSE) #to keep it as a list and not a single thing
+
+#3.Differential abundance according to stress 
+dif_abun_stress_sig <- mapply(function(x,y){x$res$diff_abn[x$res$diff_abn$taxon %in% y$ASV,]},
+                           x=ancom,
+                           y=sig_asvs,
+                           SIMPLIFY = FALSE) 
+
+```
+
+
 
