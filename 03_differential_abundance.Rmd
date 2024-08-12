@@ -200,7 +200,840 @@ dif_abun_stress_sig <- mapply(function(x,y){x$res$diff_abn[x$res$diff_abn$taxon 
                            y=sig_asvs,
                            SIMPLIFY = FALSE) 
 
+#place ASV as rowname to avoid mistakes later
+dif_abun_stress_sig <- lapply(dif_abun_stress_sig, function(df){
+  rownames(df) <- df$taxon
+  df <- df[,3:4]
+  return(df)
+})
+
 ```
+
+##Heatmap LFC by treatment
+
+To make my life easier I'll plot one per experiment and just run the same code 
+
+###Phyto
+```{r}
+
+#I need:
+lfc_sig$cond_phytohormones #values of lfc 
+dif_abun_stress_sig$cond_phytohormones #info if DA in JA and/or SA
+ps_16S_split$cond_phytohormones #phyloseq
+
+#change name to run the same code 
+lfc <- lfc_sig$cond_phytohormones
+dif_abun_stress <- dif_abun_stress_sig$cond_phytohormones
+
+#let's plot only the LFC 
+
+#Now, let's see what happens when the LFC results from ANCOMBC are plotted in a heatmap
+rownames(lfc) <- lfc$taxon
+lfc <- lfc[,3:4]
+
+#make a matrix from the lfc differences
+matrix.log.phyto <- as.matrix(lfc) 
+
+#make new ps with only the DA asvs
+ps_DA <- phyloseq::prune_taxa(sig_asvs$cond_phytohormones$ASV, ps_16S_split$cond_phytohormones)
+
+#get species name if available, if not replace with name of ASV
+df_row <- as.data.frame((tax_table(ps_DA))[, c("Genus")])
+df_row <- df_row %>%
+           mutate(asv_name=rownames(.)) #new column with rownames
+df_row$Genus <- ifelse(is.na(df_row$Genus), df_row$asv_name, df_row$Genus)
+df_row <- df_row %>%
+           dplyr::select(Genus)
+
+#order data so it matches
+dif_abun_stress_ordered <- dif_abun_stress[order(match(rownames(dif_abun_stress),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+matrix.log.phyto_ordered <- matrix.log.phyto[order(match(rownames(matrix.log.phyto),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+#define annotation for rows
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps_DA)[, "Phylum"]), #to add phylum in the heatmap as well
+    Contrast = dif_abun_stress_ordered) 
+colnames(annotation_row)[2:3] <- c("JAvsCtrl", "SAvsCtrl")
+
+#change it to factor so it can be colored
+annotation_row$JAvsCtrl <- as.factor(annotation_row$JAvsCtrl)
+annotation_row$SAvsCtrl <- as.factor(annotation_row$SAvsCtrl)
+
+#check if rownames are in same order 
+rownames(tax_table(ps_DA)) #annotation row
+rownames(df_row) #yes
+
+#check if names are the same 
+rownames(matrix.log.phyto_ordered)
+rownames(annotation_row) #yes
+
+#make labels for rows 
+df_row
+species_ordered <- df_row[order(match(rownames(df_row), rownames(matrix.log.phyto_ordered))), , drop = FALSE]
+
+# select colors for factors
+#make colors for phylum with custom function
+colourCount <- length(levels(annotation_row$Phylum))
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Set3"))
+
+#apply to phylum
+phylum_col = getPalette(colourCount)
+names(phylum_col) = levels(annotation_row$Phylum)
+names(color_experiment) = c("cond_phytohormones", "real_insects")
+
+#put all colors together
+annotation_colors = list(
+     Phylum = phylum_col,
+     JAvsCtrl = c("TRUE" = "#E69F00", "FALSE" = "white"),
+     SAvsCtrl = c("TRUE" = "#4472C4", "FALSE" = "white"),
+     Experiment = color_experiment)
+
+#make colors for matrix
+#Select colors for the ends of the values and the middle 
+function_color_matrix <- circlize::colorRamp2(c(-2.5, 0, 2.5),
+                          c("#0088c9",  "white", "#c85200"))
+                         # c("#0000FF", "white", "#FF0000")) #palette blue/red
+                         # c("#018571", "white", "#A6611A")) #palette teal/brown
+
+function_color_matrix(seq(-3,3)) #gives you 9 colors with white in the middle 
+
+# now plot the pheatmap
+lfc_heatmap <- ComplexHeatmap::pheatmap(matrix.log.phyto_ordered,
+                         color= function_color_matrix,
+                         name="LFC",
+                         scale= "none", 
+                         row_labels = species_ordered$Genus,
+                         #annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = annotation_colors,
+                         cluster_cols = FALSE,
+                         cluster_rows = TRUE,
+                         main = "Phytohormones",
+                         fontsize_row = 8,
+                         fontsize_col = 8)
+#view
+lfc_heatmap
+
+#save by hand with dimensions: 784x634 px 
+
+```
+
+###Insects
+```{r}
+
+#I need:
+lfc_sig$cond_real_insects #values of lfc 
+dif_abun_stress_sig$cond_real_insects #info if DA in JA and/or SA
+ps_16S_split$cond_real_insects #phyloseq
+
+#change name to run the same code 
+lfc <- lfc_sig$cond_real_insects
+dif_abun_stress <- dif_abun_stress_sig$cond_real_insects
+
+#let's plot only the LFC 
+
+#Now, let's see what happens when the LFC results from ANCOMBC are plotted in a heatmap
+rownames(lfc) <- lfc$taxon
+lfc <- lfc[,3:4]
+
+#make a matrix from the lfc differences
+matrix.log.insects <- as.matrix(lfc) 
+
+#make new ps with only the DA asvs
+ps_DA <- phyloseq::prune_taxa(sig_asvs$cond_real_insects$ASV, ps_16S_split$cond_real_insects)
+
+#get species name if available, if not replace with name of ASV
+df_row <- as.data.frame((tax_table(ps_DA))[, c("Genus")])
+df_row <- df_row %>%
+           mutate(asv_name=rownames(.)) #new column with rownames
+df_row$Genus <- ifelse(is.na(df_row$Genus), df_row$asv_name, df_row$Genus)
+df_row <- df_row %>%
+           dplyr::select(Genus)
+
+#order data so it matches
+dif_abun_stress_ordered <- dif_abun_stress[order(match(rownames(dif_abun_stress),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+matrix.log.insects_ordered <- matrix.log.insects[order(match(rownames(matrix.log.insects),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+#define annotation for rows
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps_DA)[, "Phylum"]), #to add phylum in the heatmap as well
+    Contrast = dif_abun_stress_ordered) 
+colnames(annotation_row)[2:3] <- c("JAvsCtrl", "SAvsCtrl")
+
+#change it to factor so it can be colored
+annotation_row$JAvsCtrl <- as.factor(annotation_row$JAvsCtrl)
+annotation_row$SAvsCtrl <- as.factor(annotation_row$SAvsCtrl)
+
+#check if rownames are in same order 
+rownames(tax_table(ps_DA)) #annotation row
+rownames(df_row) #yes
+
+#check if names are the same 
+rownames(matrix.log.phyto_ordered)
+rownames(annotation_row) #yes
+
+#make labels for rows 
+df_row
+species_ordered <- df_row[order(match(rownames(df_row), rownames(matrix.log.insects_ordered))), , drop = FALSE]
+
+# select colors for factors
+#make colors for phylum with custom function
+colourCount <- length(levels(annotation_row$Phylum))
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Set3"))
+
+#apply to phylum
+phylum_col = getPalette(colourCount)
+names(phylum_col) = levels(annotation_row$Phylum)
+names(color_experiment) = c("cond_phytohormones", "real_insects")
+
+#put all colors together
+annotation_colors = list(
+     Phylum = phylum_col,
+     JAvsCtrl = c("TRUE" = "#E69F00", "FALSE" = "white"),
+     SAvsCtrl = c("TRUE" = "#4472C4", "FALSE" = "white"),
+     Experiment = color_experiment)
+
+#make colors for matrix
+#Select colors for the ends of the values and the middle 
+function_color_matrix <- circlize::colorRamp2(c(-2.5, 0, 2.5),
+                          c("#0088c9",  "white", "#c85200"))
+                         # c("#0000FF", "white", "#FF0000")) #palette blue/red
+                         # c("#018571", "white", "#A6611A")) #palette teal/brown
+
+function_color_matrix(seq(-3,3)) #gives you 9 colors with white in the middle 
+
+# now plot the pheatmap
+lfc_heatmap <- ComplexHeatmap::pheatmap(matrix.log.insects_ordered,
+                         color= function_color_matrix,
+                         name="LFC",
+                         scale= "none", 
+                         row_labels = species_ordered$Genus,
+                         #annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = annotation_colors,
+                         cluster_cols = FALSE,
+                         cluster_rows = TRUE,
+                         main = "Insect Herbivory",
+                         fontsize_row = 8,
+                         fontsize_col = 8)
+#view
+lfc_heatmap
+
+#save by hand with dimensions: 784x634 px 
+
+```
+
+###EPG
+```{r}
+
+#I need:
+lfc_sig$EPG #values of lfc 
+dif_abun_stress_sig$EPG #info if DA in JA and/or SA
+ps_16S_split$EPG #phyloseq
+
+#change name to run the same code 
+lfc <- lfc_sig$EPG
+dif_abun_stress <- dif_abun_stress_sig$EPG
+
+#let's plot only the LFC 
+
+#Now, let's see what happens when the LFC results from ANCOMBC are plotted in a heatmap
+rownames(lfc) <- lfc$taxon
+lfc <- lfc[,3:4]
+
+#make a matrix from the lfc differences
+matrix.log.EPG <- as.matrix(lfc) 
+
+#make new ps with only the DA asvs
+ps_DA <- phyloseq::prune_taxa(sig_asvs$EPG$ASV, ps_16S_split$EPG)
+
+#get species name if available, if not replace with name of ASV
+df_row <- as.data.frame((tax_table(ps_DA))[, c("Genus")])
+df_row <- df_row %>%
+           mutate(asv_name=rownames(.)) #new column with rownames
+df_row$Genus <- ifelse(is.na(df_row$Genus), df_row$asv_name, df_row$Genus)
+df_row <- df_row %>%
+           dplyr::select(Genus)
+
+#order data so it matches
+dif_abun_stress_ordered <- dif_abun_stress[order(match(rownames(dif_abun_stress),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+matrix.log.EPG_ordered <- matrix.log.EPG[order(match(rownames(matrix.log.EPG),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+#define annotation for rows
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps_DA)[, "Phylum"]), #to add phylum in the heatmap as well
+    Contrast = dif_abun_stress_ordered) 
+colnames(annotation_row)[2:3] <- c("JAvsCtrl", "SAvsCtrl")
+
+#change it to factor so it can be colored
+annotation_row$JAvsCtrl <- as.factor(annotation_row$JAvsCtrl)
+annotation_row$SAvsCtrl <- as.factor(annotation_row$SAvsCtrl)
+
+#check if rownames are in same order 
+rownames(tax_table(ps_DA)) #annotation row
+rownames(df_row) #yes
+
+#check if names are the same 
+rownames(matrix.log.EPG_ordered)
+rownames(annotation_row) #yes
+
+#make labels for rows 
+df_row
+species_ordered <- df_row[order(match(rownames(df_row), rownames(matrix.log.EPG_ordered))), , drop = FALSE]
+
+# select colors for factors
+#make colors for phylum with custom function
+colourCount <- length(levels(annotation_row$Phylum))
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Set3"))
+
+#apply to phylum
+phylum_col = getPalette(colourCount)
+names(phylum_col) = levels(annotation_row$Phylum)
+names(color_experiment) = c("cond_phytohormones", "real_insects")
+
+#put all colors together
+annotation_colors = list(
+     Phylum = phylum_col,
+     JAvsCtrl = c("TRUE" = "#E69F00", "FALSE" = "white"),
+     SAvsCtrl = c("TRUE" = "#4472C4", "FALSE" = "white"),
+     Experiment = color_experiment)
+
+#make colors for matrix
+#Select colors for the ends of the values and the middle 
+function_color_matrix <- circlize::colorRamp2(c(-2.5, 0, 2.5),
+                          c("#0088c9",  "white", "#c85200"))
+                         # c("#0000FF", "white", "#FF0000")) #palette blue/red
+                         # c("#018571", "white", "#A6611A")) #palette teal/brown
+
+function_color_matrix(seq(-3,3)) #gives you 9 colors with white in the middle 
+
+# now plot the pheatmap
+lfc_heatmap <- ComplexHeatmap::pheatmap(matrix.log.EPG_ordered,
+                         color= function_color_matrix,
+                         name="LFC",
+                         scale= "none", 
+                         row_labels = species_ordered$Genus,
+                         #annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = annotation_colors,
+                         cluster_cols = FALSE,
+                         cluster_rows = TRUE,
+                         main = "EPG",
+                         fontsize_row = 8,
+                         fontsize_col = 8)
+#view
+lfc_heatmap
+
+#save by hand with dimensions: 784x634 px 
+
+```
+
+##Summary
+
+
+
+
+
+
+
+#ITS
+
+```{r}
+
+#First, save results
+save.image(file="./R_Environments/03_differential_abundance/heatmap_16S.RData")
+
+#remove everything but functions and colors for plots
+rm(list=ls())
+gc()
+
+#Load ITS data
+
+#ITS
+load(file = "./amplicon_data/Phyloseq_objects/ps_ITS_split.RData")
+ps_ITS_split
+
+```
+
+
+##Pre-filtering
+
+```{r}
+#First, make a pre-filtering of those taxa that are low in prevalence (<20%)
+
+ps_ITS_filt <- lapply(ps_ITS_split, function(ps){
+  metagMisc::phyloseq_filter_prevalence(ps, prev.trh = 0.10, #at least 20% of samples
+                                          abund.trh = NULL) #no filtering by abundance
+})
+
+#check
+ps_ITS_filt #less than 150 taxa, better to use 10% prevalence filter 
+
+#clean
+rm(ps_ITS_filt)
+
+```
+
+##ANCOM
+```{r}
+
+ancom <- lapply(ps_ITS_split, function(ps){
+  set.seed(123)
+  ANCOMBC::ancombc(phyloseq = ps, 
+                      formula = "plant_pathway_induced", 
+                      p_adj_method = "fdr", #same as "BH" Benjamini & Hochberg
+                      prv_cut = 0.10,
+                      group = "plant_pathway_induced", 
+                      struc_zero = TRUE, #with structural zero's
+                      neg_lb = FALSE, #classifies structural zero's if it's zero and not its asymptotic lower bound 
+                      tol = 1e-5,               
+                      max_iter = 100, 
+                      conserve = TRUE, #conservative variance of the test statistics 
+                      alpha = 0.05,
+                      verbose=TRUE,
+                      global=FALSE)})
+
+save(ancom, file = "./Results/03_differential_abundance/ancom_ITS.Rdata")
+
+```
+
+Get results 
+```{r}
+
+head(ancom$cond_phytohormones$feature_table)
+
+#check
+lapply(ancom, function(ancom_result){head(ancom_result$res$lfc)})#LFC
+lapply(ancom, function(ancom_result){head(ancom_result$res$se)})#standard error
+lapply(ancom, function(ancom_result){head(ancom_result$res$W)}) #test statistic LFC/se
+
+#get sample fractions
+samp_frac <- lapply(ancom, function(ancom_result){ancom_result$samp_frac})#ancom$samp_frac
+
+# Get log transformed counts and add pseudo-count (1) to feature table to avoid taking the log of 0
+log_obs_abn <-lapply(ancom, function(ancom_result){log(ancom_result$feature_table +1)})
+
+# Adjust the log observed abundances with the sample fraction
+log_corr_abn <-mapply(function(x,y){
+                     t(t(x) - y)},
+                     x=log_obs_abn,
+                     y=samp_frac)
+  
+#Results
+log_corr_abn #bias-corrected log abundances
+lfc <- lapply(ancom, function(ancom_result){ancom_result$res$lfc}) #log-fold change according to control 
+se_lfc <- lapply(ancom, function(ancom_result){ancom_result$res$se}) #standard error of log-fold change
+
+#get significant ASVs   
+JA_asvs <- lapply(ancom, function(ancom_result){
+           asvs <- ancom_result$res$diff_abn %>%
+            dplyr::filter(plant_pathway_inducedJA == TRUE) #26,12,8
+           asvs$ASV <- asvs$taxon
+           return(asvs)})
+
+SA_asvs <- lapply(ancom, function(ancom_result){
+           asvs <- ancom_result$res$diff_abn %>%
+            dplyr::filter(plant_pathway_inducedSA == TRUE) #9,4,10
+           asvs$ASV <- asvs$taxon
+           return(asvs)})
+
+#Now I need to get the unique names 
+sig_asvs <- mapply(function(x,y){
+  c(x$ASV, y$ASV)},
+  x=JA_asvs,
+  y=SA_asvs)
+
+#make it into a dataframe format
+sig_asvs <- lapply(sig_asvs, function(x){
+   unique <- unique(x)
+   unique <- as.data.frame(unique)
+   colnames(unique) <- "ASV"
+   return(unique)})  
+
+#With this I can slice the different data frames to plot them
+
+#1.bias-corrected abundances
+log_corr_abn_sig <- mapply(function(x,y){x[y$ASV,]},
+  x=log_corr_abn,
+  y=sig_asvs) #works because its a matrix 
+
+#2.log-fold change vs controls
+lfc_sig <- mapply(function(x,y){x[x$taxon %in% y$ASV,]},
+                  x=lfc,
+                  y=sig_asvs,
+                  SIMPLIFY = FALSE) #to keep it as a list and not a single thing
+
+#3.Differential abundance according to stress 
+dif_abun_stress_sig <- mapply(function(x,y){x$res$diff_abn[x$res$diff_abn$taxon %in% y$ASV,]},
+                           x=ancom,
+                           y=sig_asvs,
+                           SIMPLIFY = FALSE) 
+
+#place ASV as rowname to avoid mistakes later
+dif_abun_stress_sig <- lapply(dif_abun_stress_sig, function(df){
+  rownames(df) <- df$taxon
+  df <- df[,3:4]
+  return(df)
+})
+
+```
+
+##Heatmap LFC by treatment
+
+To make my life easier I'll plot one per experiment and just run the same code 
+
+###Phyto
+```{r}
+
+#I need:
+lfc_sig$cond_phytohormones #values of lfc 
+dif_abun_stress_sig$cond_phytohormones #info if DA in JA and/or SA
+ps_ITS_split$cond_phytohormones #phyloseq
+
+#change name to run the same code 
+lfc <- lfc_sig$cond_phytohormones
+dif_abun_stress <- dif_abun_stress_sig$cond_phytohormones
+
+#let's plot only the LFC 
+
+#Now, let's see what happens when the LFC results from ANCOMBC are plotted in a heatmap
+rownames(lfc) <- lfc$taxon
+lfc <- lfc[,3:4]
+
+#make a matrix from the lfc differences
+matrix.log.phyto <- as.matrix(lfc) 
+
+#make new ps with only the DA asvs
+ps_DA <- phyloseq::prune_taxa(sig_asvs$cond_phytohormones$ASV, ps_ITS_split$cond_phytohormones)
+
+#get species name if available, if not replace with name of ASV
+df_row <- as.data.frame((tax_table(ps_DA))[, c("Genus")])
+df_row <- df_row %>%
+           mutate(asv_name=rownames(.)) #new column with rownames
+df_row$Genus <- ifelse(is.na(df_row$Genus), df_row$asv_name, df_row$Genus)
+df_row <- df_row %>%
+           dplyr::select(Genus)
+
+#get life-guild trait if available
+df_guild <- as.data.frame((tax_table(ps_DA))[,c("Trophic.Mode")])
+df_guild <- df_guild %>% 
+            mutate(asv_name=rownames(.))
+df_guild$Trophic.Mode <- ifelse(df_guild$Trophic.Mode == "-", 'unknown', df_guild$Trophic.Mode)
+
+#order data so it matches
+dif_abun_stress_ordered <- dif_abun_stress[order(match(rownames(dif_abun_stress),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+matrix.log.phyto_ordered <- matrix.log.phyto[order(match(rownames(matrix.log.phyto),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+#define annotation for rows
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps_DA)[, "Phylum"]), #to add phylum in the heatmap as well
+    Guild = as.factor(tax_table(ps_DA)[, "Trophic.Mode"]),
+    Contrast = dif_abun_stress_ordered) 
+colnames(annotation_row)[3:4] <- c("JAvsCtrl", "SAvsCtrl")
+
+#change it to factor so it can be colored
+annotation_row$JAvsCtrl <- as.factor(annotation_row$JAvsCtrl)
+annotation_row$SAvsCtrl <- as.factor(annotation_row$SAvsCtrl)
+
+#check if rownames are in same order 
+rownames(tax_table(ps_DA)) #annotation row
+rownames(df_row) #yes
+
+#check if names are the same 
+rownames(matrix.log.phyto_ordered)
+rownames(annotation_row) #yes
+
+#make labels for rows 
+df_row
+species_ordered <- df_row[order(match(rownames(df_row), rownames(matrix.log.phyto_ordered))), , drop = FALSE]
+
+# select colors for factors
+#make colors for phylum with custom function
+colourCount <- length(levels(annotation_row$Phylum))
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Set3"))
+
+#apply to phylum
+phylum_col = getPalette(colourCount)
+names(phylum_col) = levels(annotation_row$Phylum)
+
+#apply to guild
+colourCount <- length(levels(annotation_row$Guild))
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Paired"))
+getPalette(colourCount)
+guild_colors <- c("#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F")
+levels(annotation_row$Guild)
+guild_colors <- c("gray","#E31A1C", "#FDBF6F", "#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C")
+names(guild_colors) <- levels(annotation_row$Guild)
+
+#change name of experiment so it works
+names(color_experiment) = c("cond_phytohormones", "real_insects")
+
+#put all colors together
+annotation_colors = list(
+     Phylum = phylum_col,
+     Guild = guild_colors,
+     JAvsCtrl = c("TRUE" = "#E69F00", "FALSE" = "white"),
+     SAvsCtrl = c("TRUE" = "#4472C4", "FALSE" = "white"),
+     Experiment = color_experiment)
+
+#make colors for matrix
+#Select colors for the ends of the values and the middle 
+function_color_matrix <- circlize::colorRamp2(c(-2.5, 0, 2.5),
+                          c("#0088c9",  "white", "#c85200"))
+                         # c("#0000FF", "white", "#FF0000")) #palette blue/red
+                         # c("#018571", "white", "#A6611A")) #palette teal/brown
+
+function_color_matrix(seq(-3,3)) #gives you 9 colors with white in the middle 
+
+# now plot the pheatmap
+lfc_heatmap <- ComplexHeatmap::pheatmap(matrix.log.phyto_ordered,
+                         color= function_color_matrix,
+                         name="LFC",
+                         scale= "none", 
+                         row_labels = species_ordered$Genus,
+                         #annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = annotation_colors,
+                         cluster_cols = FALSE,
+                         cluster_rows = TRUE,
+                         main = "Phytohormones-ITS",
+                         fontsize_row = 8,
+                         fontsize_col = 8)
+#view
+lfc_heatmap
+
+#save by hand with dimensions: 784x634 px 
+
+```
+
+###Insects
+```{r}
+
+#I need:
+lfc_sig$cond_real_insects #values of lfc 
+dif_abun_stress_sig$cond_real_insects #info if DA in JA and/or SA
+ps_ITS_split$cond_real_insects #phyloseq
+
+#change name to run the same code 
+lfc <- lfc_sig$cond_real_insects
+dif_abun_stress <- dif_abun_stress_sig$cond_real_insects
+
+#let's plot only the LFC 
+
+#Now, let's see what happens when the LFC results from ANCOMBC are plotted in a heatmap
+rownames(lfc) <- lfc$taxon
+lfc <- lfc[,3:4]
+
+#make a matrix from the lfc differences
+matrix.log.insects <- as.matrix(lfc) 
+
+#make new ps with only the DA asvs
+ps_DA <- phyloseq::prune_taxa(sig_asvs$cond_real_insects$ASV, ps_ITS_split$cond_real_insects)
+
+#get species name if available, if not replace with name of ASV
+df_row <- as.data.frame((tax_table(ps_DA))[, c("Genus")])
+df_row <- df_row %>%
+           mutate(asv_name=rownames(.)) #new column with rownames
+df_row$Genus <- ifelse(is.na(df_row$Genus), df_row$asv_name, df_row$Genus)
+df_row <- df_row %>%
+           dplyr::select(Genus)
+
+#order data so it matches
+dif_abun_stress_ordered <- dif_abun_stress[order(match(rownames(dif_abun_stress),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+matrix.log.insects_ordered <- matrix.log.insects[order(match(rownames(matrix.log.insects),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+#define annotation for rows
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps_DA)[, "Phylum"]), #to add phylum in the heatmap as well
+    Contrast = dif_abun_stress_ordered) 
+colnames(annotation_row)[2:3] <- c("JAvsCtrl", "SAvsCtrl")
+
+#change it to factor so it can be colored
+annotation_row$JAvsCtrl <- as.factor(annotation_row$JAvsCtrl)
+annotation_row$SAvsCtrl <- as.factor(annotation_row$SAvsCtrl)
+
+#check if rownames are in same order 
+rownames(tax_table(ps_DA)) #annotation row
+rownames(df_row) #yes
+
+#check if names are the same 
+rownames(matrix.log.insects_ordered)
+rownames(annotation_row) #yes
+
+#make labels for rows 
+df_row
+species_ordered <- df_row[order(match(rownames(df_row), rownames(matrix.log.insects_ordered))), , drop = FALSE]
+
+# select colors for factors
+#make colors for phylum with custom function
+colourCount <- length(levels(annotation_row$Phylum))
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Set3"))
+
+#apply to phylum
+phylum_col = getPalette(colourCount)
+names(phylum_col) = levels(annotation_row$Phylum)
+names(color_experiment) = c("cond_phytohormones", "real_insects")
+
+#put all colors together
+annotation_colors = list(
+     Phylum = phylum_col,
+     JAvsCtrl = c("TRUE" = "#E69F00", "FALSE" = "white"),
+     SAvsCtrl = c("TRUE" = "#4472C4", "FALSE" = "white"),
+     Experiment = color_experiment)
+
+#make colors for matrix
+#Select colors for the ends of the values and the middle 
+function_color_matrix <- circlize::colorRamp2(c(-2.5, 0, 2.5),
+                          c("#0088c9",  "white", "#c85200"))
+                         # c("#0000FF", "white", "#FF0000")) #palette blue/red
+                         # c("#018571", "white", "#A6611A")) #palette teal/brown
+
+function_color_matrix(seq(-3,3)) #gives you 9 colors with white in the middle 
+
+# now plot the pheatmap
+lfc_heatmap <- ComplexHeatmap::pheatmap(matrix.log.insects_ordered,
+                         color= function_color_matrix,
+                         name="LFC",
+                         scale= "none", 
+                         row_labels = species_ordered$Genus,
+                         #annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = annotation_colors,
+                         cluster_cols = FALSE,
+                         cluster_rows = TRUE,
+                         main = "Insect Herbivory-ITS",
+                         fontsize_row = 8,
+                         fontsize_col = 8)
+#view
+lfc_heatmap
+
+#save by hand with dimensions: 784x634 px 
+
+```
+
+###EPG
+```{r}
+
+#I need:
+lfc_sig$EPG #values of lfc 
+dif_abun_stress_sig$EPG #info if DA in JA and/or SA
+ps_ITS_split$EPG #phyloseq
+
+#change name to run the same code 
+lfc <- lfc_sig$EPG
+dif_abun_stress <- dif_abun_stress_sig$EPG
+
+#let's plot only the LFC 
+
+#Now, let's see what happens when the LFC results from ANCOMBC are plotted in a heatmap
+rownames(lfc) <- lfc$taxon
+lfc <- lfc[,3:4]
+
+#make a matrix from the lfc differences
+matrix.log.EPG <- as.matrix(lfc) 
+
+#make new ps with only the DA asvs
+ps_DA <- phyloseq::prune_taxa(sig_asvs$EPG$ASV, ps_ITS_split$EPG)
+
+#get species name if available, if not replace with name of ASV
+df_row <- as.data.frame((tax_table(ps_DA))[, c("Genus")])
+df_row <- df_row %>%
+           mutate(asv_name=rownames(.)) #new column with rownames
+df_row$Genus <- ifelse(is.na(df_row$Genus), df_row$asv_name, df_row$Genus)
+df_row <- df_row %>%
+           dplyr::select(Genus)
+
+#order data so it matches
+dif_abun_stress_ordered <- dif_abun_stress[order(match(rownames(dif_abun_stress),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+matrix.log.EPG_ordered <- matrix.log.EPG[order(match(rownames(matrix.log.EPG),
+                                                     rownames(tax_table(ps_DA)))), , drop=FALSE] 
+
+#define annotation for rows
+annotation_row = data.frame(
+    Phylum = as.factor(tax_table(ps_DA)[, "Phylum"]), #to add phylum in the heatmap as well
+    Contrast = dif_abun_stress_ordered) 
+colnames(annotation_row)[2:3] <- c("JAvsCtrl", "SAvsCtrl")
+
+#change it to factor so it can be colored
+annotation_row$JAvsCtrl <- as.factor(annotation_row$JAvsCtrl)
+annotation_row$SAvsCtrl <- as.factor(annotation_row$SAvsCtrl)
+
+#check if rownames are in same order 
+rownames(tax_table(ps_DA)) #annotation row
+rownames(df_row) #yes
+
+#check if names are the same 
+rownames(matrix.log.EPG_ordered)
+rownames(annotation_row) #yes
+
+#make labels for rows 
+df_row
+species_ordered <- df_row[order(match(rownames(df_row), rownames(matrix.log.EPG_ordered))), , drop = FALSE]
+
+# select colors for factors
+#make colors for phylum with custom function
+colourCount <- length(levels(annotation_row$Phylum))
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Set3"))
+
+#apply to phylum
+phylum_col = getPalette(colourCount)
+names(phylum_col) = levels(annotation_row$Phylum)
+names(color_experiment) = c("cond_phytohormones", "real_insects")
+
+#put all colors together
+annotation_colors = list(
+     Phylum = phylum_col,
+     JAvsCtrl = c("TRUE" = "#E69F00", "FALSE" = "white"),
+     SAvsCtrl = c("TRUE" = "#4472C4", "FALSE" = "white"),
+     Experiment = color_experiment)
+
+#make colors for matrix
+#Select colors for the ends of the values and the middle 
+function_color_matrix <- circlize::colorRamp2(c(-2.5, 0, 2.5),
+                          c("#0088c9",  "white", "#c85200"))
+                         # c("#0000FF", "white", "#FF0000")) #palette blue/red
+                         # c("#018571", "white", "#A6611A")) #palette teal/brown
+
+function_color_matrix(seq(-3,3)) #gives you 9 colors with white in the middle 
+
+# now plot the pheatmap
+lfc_heatmap <- ComplexHeatmap::pheatmap(matrix.log.EPG_ordered,
+                         color= function_color_matrix,
+                         name="LFC",
+                         scale= "none", 
+                         row_labels = species_ordered$Genus,
+                         #annotation_col = annotation_col, 
+                         annotation_row = annotation_row, 
+                         annotation_colors = annotation_colors,
+                         cluster_cols = FALSE,
+                         cluster_rows = TRUE,
+                         main = "EPG-ITS",
+                         fontsize_row = 8,
+                         fontsize_col = 8)
+#view
+lfc_heatmap
+
+#save by hand with dimensions: 784x634 px 
+
+```
+
 
 
 
