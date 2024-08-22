@@ -1,0 +1,79 @@
+DATASET_COLORSTRIP
+SEPARATOR TAB
+DATASET_LABEL	AF1_Experiment
+COLOR	#ff0000
+LEGEND_TITLE	data
+LEGEND_POSITION_X	100
+LEGEND_POSITION_Y	100
+LEGEND_HORIZONTAL	1
+LEGEND_SHAPES	1	1	1
+LEGEND_COLORS	#1b9e77	#d95f02	#7570b3
+LEGEND_LABELS	Both	insects	phytohormones
+SHOW_INTERNAL	0
+MARGIN	0
+BORDER_WIDTH	1
+BORDER_COLOR	#000
+STRIP_WIDTH	25
+COLOR_BRANCHES	1
+DATA
+fASV_238	#CC3399	phytohormones
+fASV_52	#CC3399	phytohormones
+fASV_270	#CC3399	phytohormones
+fASV_75	#CC3399	phytohormones
+fASV_77	#CC3399	phytohormones
+fASV_985	#CC3399	phytohormones
+fASV_373	#CC3399	phytohormones
+fASV_1080	#CC3399	phytohormones
+fASV_90	#CC3399	phytohormones
+fASV_57	#CC3399	phytohormones
+fASV_80	#CC3399	phytohormones
+fASV_194	#CC3399	phytohormones
+fASV_22	#70AD47	insects
+fASV_1467	#CC3399	phytohormones
+fASV_821	#70AD47	insects
+fASV_49	#CC3399	phytohormones
+fASV_513	#CC3399	phytohormones
+fASV_180	#CC3399	phytohormones
+fASV_221	#70AD47	insects
+fASV_162	#70AD47	insects
+fASV_15	#7570b3	Both
+fASV_15	#7570b3	Both
+fASV_240	#CC3399	phytohormones
+fASV_195	#CC3399	phytohormones
+fASV_187	#CC3399	phytohormones
+fASV_298	#CC3399	phytohormones
+fASV_160	#7570b3	Both
+fASV_160	#7570b3	Both
+fASV_87	#70AD47	insects
+fASV_215	#CC3399	phytohormones
+fASV_39	#CC3399	phytohormones
+fASV_532	#CC3399	phytohormones
+fASV_854	#CC3399	phytohormones
+fASV_349	#70AD47	insects
+fASV_1718	#70AD47	insects
+fASV_125	#CC3399	phytohormones
+fASV_97	#CC3399	phytohormones
+fASV_456	#CC3399	phytohormones
+fASV_285	#CC3399	phytohormones
+fASV_961	#CC3399	phytohormones
+fASV_172	#70AD47	insects
+fASV_446	#CC3399	phytohormones
+fASV_136	#CC3399	phytohormones
+fASV_128	#CC3399	phytohormones
+fASV_653	#CC3399	phytohormones
+fASV_545	#CC3399	phytohormones
+fASV_1328	#70AD47	insects
+fASV_515	#CC3399	phytohormones
+fASV_401	#70AD47	insects
+fASV_490	#CC3399	phytohormones
+fASV_333	#CC3399	phytohormones
+fASV_170	#CC3399	phytohormones
+fASV_166	#7570b3	Both
+fASV_166	#7570b3	Both
+fASV_186	#70AD47	insects
+fASV_252	#70AD47	insects
+fASV_135	#CC3399	phytohormones
+fASV_228	#CC3399	phytohormones
+fASV_189	#70AD47	insects
+fASV_139	#CC3399	phytohormones
+fASV_137	#CC3399	phytohormones

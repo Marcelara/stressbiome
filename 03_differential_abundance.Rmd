@@ -50,6 +50,7 @@ library(pscl)
 library(MASS)
 library(phytools)
 library(VennDiagram)
+library(itol.toolkit)
 
 #Differential Abundance
 library(ANCOMBC) #ANCOM
@@ -1261,7 +1262,7 @@ gc()
 ```
 
 ##iTOL
-```{r}
+```{r pruning ps}
 
 #load full ITS ps, you'll need it to prune the tree from there 
 load("./amplicon_data/Phyloseq_objects/ps_ITS.RData")
@@ -1285,52 +1286,53 @@ plot(ITS_tree)
 ITS_tree$tip.label
 
 #save it
-ape::write.tree(ITS_tree, "./Results/03_differential_abundance/ITS_DA_tree.tre")
+ape::write.tree(ITS_tree, "./Results/03_differential_abundance/ITS_iTOL/ITS_DA_tree.tre")
 
 ```
 
 Now, create a complete dataframe with all the info
 
-```{r}
+```{r dataframe}
 
 ##let's get D1:Experiment
 df.p <- as.data.frame(p) %>% 
-         mutate(Experiment= "phytohormones")
+         mutate(Phytohormones= "phytohormones")
 colnames(df.p)[1] <-  "id"
   
 df.i <- as.data.frame(i)%>% 
-         mutate(Experiment= "insects")
+         mutate(Insects= "insects")
 colnames(df.i)[1] <-  "id"
 
 #merge
-df_experiment <- rbind(df.p, df.i)
+df_experiment <- full_join(df.p, df.i)
+order_asvs <- df_experiment$id
 
 #Add both, to those ASVs that are shared in a new column
-intersect #these are the ASVs that are in both 
-df_experiment <- df_experiment %>% mutate(Experiment_2=case_when(
-                                        id %in% intersect ~ "Both", TRUE ~ Experiment))
-rownames(df_experiment) 
+#intersect #these are the ASVs that are in both 
+#df_experiment <- df_experiment %>% mutate(Experiment_2=case_when(
+#                                       id %in% intersect ~ "Both", TRUE ~ Experiment))
+#rownames(df_experiment) 
 
 #Now, let's get D2:LFC
 #get LFC values from both experiments in a single df 
-lfc_phyto <- phyto_dataDA$lfc %>%  mutate(Experiment= "phytohormones") %>% 
+lfc_phyto <- phyto_dataDA$lfc %>%  mutate(Phytohormones= "phytohormones") %>% 
                                    rownames_to_column(var="id")
-colnames(lfc_phyto) <- c("id", "lfc_JA_phyto", "lfc_SA_phyto", "Experiment")                              
+colnames(lfc_phyto) <- c("id", "lfc_JA_phyto", "lfc_SA_phyto", "Phytohormones")                              
 
-lfc_insects <- insects_dataDA$lfc %>%  mutate(Experiment= "insects") %>% 
+lfc_insects <- insects_dataDA$lfc %>%  mutate(Insects= "insects") %>% 
                                    rownames_to_column(var="id")
-colnames(lfc_insects) <- c("id", "lfc_JA_insects", "lfc_SA_insects", "Experiment")  
+colnames(lfc_insects) <- c("id", "lfc_JA_insects", "lfc_SA_insects", "Insects")  
 
 #merge
 df_lfc <- full_join(lfc_phyto, lfc_insects)
-df_lfc <- df_lfc %>% mutate(Experiment_2=case_when(
-                            id %in% intersect ~ "Both", TRUE ~ Experiment))
+#df_lfc <- df_lfc %>% mutate(Experiment_2=case_when(
+#                            id %in% intersect ~ "Both", TRUE ~ Experiment))
 
 
 #Next, let's get D3:Treatment
 #phyto
-bin_phyto <- phyto_dataDA$binary_stress %>% rownames_to_column(var="id") %>% mutate(Experiment="phytohormones")
-colnames(bin_phyto) <- c("id","DA_JA_phyto", "DA_SA_phyto", "Experiment")
+bin_phyto <- phyto_dataDA$binary_stress %>% rownames_to_column(var="id") %>% mutate(Phytohormones="phytohormones")
+colnames(bin_phyto) <- c("id","DA_JA_phyto", "DA_SA_phyto", "Phytohormones")
 bin_phyto <- bin_phyto %>% mutate(DA_JA_phyto = case_when(DA_JA_phyto == TRUE ~ "YES",
                                 DA_JA_phyto == FALSE ~ "NO")) %>% 
                               mutate(DA_SA_phyto = case_when(DA_SA_phyto == TRUE ~ "YES",
@@ -1342,8 +1344,8 @@ bin_phyto <- bin_phyto %>%
                   DA_JA_phyto == "YES" & DA_SA_phyto == "YES" ~ "JA_and_SA")) #works
 
 #insects
-bin_insects <- insects_dataDA$binary_stress %>% rownames_to_column(var="id") %>% mutate(Experiment="insects")
-colnames(bin_insects) <- c("id","DA_JA_insects", "DA_SA_insects", "Experiment")
+bin_insects <- insects_dataDA$binary_stress %>% rownames_to_column(var="id") %>% mutate(Insects="insects")
+colnames(bin_insects) <- c("id","DA_JA_insects", "DA_SA_insects", "Insects")
 bin_insects <- bin_insects %>% mutate(DA_JA_insects = case_when(DA_JA_insects == TRUE ~ "YES",
                                 DA_JA_insects == FALSE ~ "NO")) %>% 
                               mutate(DA_SA_insects = case_when(DA_SA_insects == TRUE ~ "YES",
@@ -1356,8 +1358,8 @@ bin_insects <- bin_insects %>%
   
 #merge
 binary_stress <- full_join(bin_phyto, bin_insects)
-binary_stress <- binary_stress %>% mutate(Experiment_2=case_when(
-                            id %in% intersect ~ "Both", TRUE ~ Experiment))
+#binary_stress <- binary_stress %>% mutate(Experiment_2=case_when(
+#                            id %in% intersect ~ "Both", TRUE ~ Experiment))
 
 #merge
 df_complete <- full_join(df_lfc, binary_stress)
@@ -1377,5 +1379,431 @@ df_complete2 <- left_join(df_complete, tax_table)
 
 ```
 
+Move it into iTOL format
+
+iTOL has a specific format to add data into the tree, it has to be in a .txt file and in a certain way coded. The package itol.toolkit helps to make an annotation file directly in R.
+
+
+```{r color management}
+
+#color management
+
+#Set-up colors
+color_JA <- "#E69F00"
+color_SA <- "#4472C4"
+color_experiment <- c("#CC3399", "#70AD47")
+
+#Built in colors
+display.brewer.all() #gives you the palettes from RColorBrewer
+
+#I like Set3 palette, let's get one with 11 colors for Phylum
+display.brewer.pal(n = 11, name = 'Set3') #nice
+
+#make a vector with colors 
+colourCount <- 11
+getPalette <- colorRampPalette(brewer.pal(colourCount, "Set3"))
+color_phylum <- getPalette(colourCount)
+
+
+```
+
+
+
+```{r Experiment}
+
+#create Annotation files with using the itol.toolkit package
+
+#Experiment: together
+temp <- df_complete2%>%
+        dplyr::select(c(id,))
+
+## Experiment: Phyto
+temp <- df_complete2%>%
+        dplyr::select(c(id,Phytohormones))
+temp$Phytohormones <- temp$Phytohormones %>% replace_na('No')
+
+df_phyto <- data.frame(id = temp$id, 
+                       data = temp$Phytohormones)
+
+AF1 <- itol.toolkit::create_unit(data = df_phyto, 
+                         key = "AF1_Experiment_Phytohormones", 
+                         type = "DATASET_COLORSTRIP",
+                         tree = ITS_tree)
+
+temp_df <- AF1@data$tip 
+temp_df2 <- temp_df %>%
+          mutate(`AF1_Experiment_Phytohormones$COLOR` = case_when(
+            `AF1_Experiment_Phytohormones$LABEL` == "phytohormones" ~"#CC3399",
+            TRUE ~ "#FFFFFF"))
+
+#substitute
+AF1@data$tip <- temp_df2
+#save
+itol.toolkit::write_unit(AF1, "./Results/03_differential_abundance/ITS_iTOL")
+
+## Experiment: Insects
+temp <- df_complete2%>%
+        dplyr::select(c(id,Insects))
+temp$Insects <- temp$Insects %>% replace_na('No')
+
+df_insects <- data.frame(id = temp$id, 
+                       data = temp$Insects)
+
+AF2 <- itol.toolkit::create_unit(data = df_insects, 
+                         key = "AF2_Experiment_Insects", 
+                         type = "DATASET_COLORSTRIP",
+                         tree = ITS_tree)
+
+temp_df <- AF2@data$tip 
+temp_df2 <- temp_df %>%
+          mutate(`AF2_Experiment_Insects$COLOR` = case_when(
+            `AF2_Experiment_Insects$LABEL` == "insects" ~"#70AD47",
+            TRUE ~ "#FFFFFF"))
+
+#substitute
+AF2@data$tip <- temp_df2
+#save
+itol.toolkit::write_unit(AF2, "./Results/03_differential_abundance/ITS_iTOL")
+
+```
+
+Treatment
+```{r Treatment}
+## Treatment
+df_Treatment <- df_complete2%>%
+                dplyr::select(id,DA_JA_phyto, DA_SA_phyto, DA_JA_insects, DA_SA_insects)%>%
+                relocate(id)
+#replace NA's
+df_Treatment$DA_JA_phyto <- df_Treatment$DA_JA_phyto %>% replace_na('NO')
+df_Treatment$DA_SA_phyto <- df_Treatment$DA_SA_phyto %>% replace_na('NO')
+df_Treatment$DA_JA_insects <- df_Treatment$DA_JA_insects %>% replace_na('NO')
+df_Treatment$DA_SA_insects <- df_Treatment$DA_SA_insects %>% replace_na('NO')
+
+#replace 0's for -1 and Yes for 1 so iTOL recognizes full and empty symbols
+df_Treatment2 <- df_Treatment %>% 
+                mutate(DA_JA_phyto=case_when(DA_JA_phyto== "YES" ~ "1", TRUE ~ "-1")) %>% 
+                mutate(DA_SA_phyto=case_when(DA_SA_phyto== "YES" ~ "1", TRUE ~ "-1")) %>%
+                mutate(DA_JA_insects=case_when(DA_JA_insects== "YES" ~ "1", TRUE ~ "-1")) %>%
+                mutate(DA_SA_insects=case_when(DA_SA_insects== "YES" ~ "1", TRUE ~ "-1"))
+
+AF3 <- itol.toolkit::create_unit(data = df_Treatment2, 
+                         key = "AF3_Treatment", 
+                         type = "DATASET_BINARY",
+                         tree = ITS_tree)
+
+AF3@field$labels <- c("JA_phyto",   "SA_phyto",   "JA_insects", "SA_insects")
+AF3@field$colors <- c("#E69F00", "#4472C4", "#E69F00", "#4472C4")
+
+itol.toolkit::write_unit(AF3, "./Results/03_differential_abundance/ITS_iTOL")
+
+#only phyto
+df_Treatment3 <- df_Treatment2 %>% dplyr::select(c(id, DA_JA_phyto, DA_SA_phyto))
+
+AF3.1 <- itol.toolkit::create_unit(data = df_Treatment3, 
+                         key = "AF3_Treatment_Phyto", 
+                         type = "DATASET_BINARY",
+                         tree = ITS_tree)
+
+AF3.1@field$labels <- c("JA_phyto",   "SA_phyto")
+AF3.1@field$colors <- c("#E69F00", "#4472C4")
+
+itol.toolkit::write_unit(AF3.1, "./Results/03_differential_abundance/ITS_iTOL")
+
+
+#only insects
+df_Treatment4 <- df_Treatment2 %>% dplyr::select(c(id, DA_JA_insects, DA_SA_insects))
+
+AF3.2 <- itol.toolkit::create_unit(data = df_Treatment4, 
+                         key = "AF3_Treatment_Insects", 
+                         type = "DATASET_BINARY",
+                         tree = ITS_tree)
+
+AF3.2@field$labels <- c("JA_insects",   "SA_insects")
+AF3.2@field$colors <- c("#E69F00", "#4472C4")
+
+itol.toolkit::write_unit(AF3.2, "./Results/03_differential_abundance/ITS_iTOL")
+
+```
+
+LFC
+```{r LFC-bars}
+## LFC, phyto
+df_LFC <- df_complete2%>%
+                dplyr::select(id,lfc_JA_phyto, lfc_SA_phyto, lfc_JA_insects, lfc_SA_insects)%>%
+                #mutate(id=rownames(.))%>%
+                relocate(id)%>%
+                as.tibble()
+
+#let's round up
+df_LFC <- df_LFC %>% 
+          dplyr::mutate(across(where(is.numeric), round, 2))
+
+#Let's try also with two independent bars, one for JA and one for SA
+df_JA <- df_LFC %>%
+          dplyr::select(id,lfc_JA_phyto)
+
+#get Annotation 
+AF4.1 <- itol.toolkit::create_unit(data = df_JA , 
+                         key = "AF4.1_LFC_Phyto_JA", 
+                         type = "DATASET_SIMPLEBAR",
+                         tree = ITS_tree)
+
+AF4.1@profile$color <- color_JA
+itol.toolkit::write_unit(AF4.1, "./Results/03_differential_abundance/ITS_iTOL")
+
+
+#Let's try also with two independent bars, one for JA and one for SA
+df_SA <- df_LFC %>%
+          dplyr::select(id,lfc_SA_phyto)
+
+#get Annotation 
+AF4.2 <- itol.toolkit::create_unit(data = df_SA , 
+                         key = "AF4.2_LFC_Phyto_SA", 
+                         type = "DATASET_SIMPLEBAR",
+                         tree = ITS_tree)
+
+AF4.2@profile$color <- color_SA
+
+itol.toolkit::write_unit(AF4.2, "./Results/03_differential_abundance/ITS_iTOL")
+
+#Insects
+#Let's try also with two independent bars, one for JA and one for SA
+df_JA <- df_LFC %>%
+          dplyr::select(id,lfc_JA_insects)
+
+#get Annotation 
+AF4.3 <- itol.toolkit::create_unit(data = df_JA , 
+                         key = "AF4.3_LFC_Insects_JA", 
+                         type = "DATASET_SIMPLEBAR",
+                         tree = ITS_tree)
+
+AF4.3@profile$color <- color_JA
+itol.toolkit::write_unit(AF4.3, "./Results/03_differential_abundance/ITS_iTOL")
+
+#Let's try also with two independent bars, one for JA and one for SA
+df_SA <- df_LFC %>%
+          dplyr::select(id,lfc_SA_insects)
+
+#get Annotation 
+AF4.4 <- itol.toolkit::create_unit(data = df_SA , 
+                         key = "AF4.4_LFC_Insects_SA", 
+                         type = "DATASET_SIMPLEBAR",
+                         tree = ITS_tree)
+
+AF4.4@profile$color <- color_SA
+itol.toolkit::write_unit(AF4.4, "./Results/03_differential_abundance/ITS_iTOL")
+
+
+```
+
+```{r LFC-circle-shapes}
+
+View(df_LFC) #let's change all those NA's for cero's
+
+df_LFCna <- df_LFC 
+df_LFCna$lfc_JA_phyto <-  df_LFCna$lfc_JA_phyto %>% replace_na(0)
+df_LFCna$lfc_SA_phyto <-  df_LFCna$lfc_SA_phyto %>% replace_na(0)
+df_LFCna$lfc_JA_insects <-  df_LFCna$lfc_JA_insects %>% replace_na(0)
+df_LFCna$lfc_SA_insects <-  df_LFCna$lfc_SA_insects %>% replace_na(0)
+
+df_LFCna #ok
+
+#re-order so JA's and SA's are together
+df_LFCna <- df_LFCna %>% relocate(id, lfc_JA_phyto, lfc_JA_insects, lfc_SA_phyto, lfc_SA_insects)
+
+#get Annotation 
+AF4 <- itol.toolkit::create_unit(data = df_LFCna , 
+                         key = "AF4_LFC_Shapes", 
+                         type = "DATASET_EXTERNALSHAPE",
+                         tree = ITS_tree)  #works
+
+#change names and colors
+AF4@field$labels <- c("JA_phyto", "JA_insects", "SA_phyto","SA_insects")
+AF4@field$colors <-c(color_JA, color_JA, color_SA, color_SA)
+AF4@specific_themes$externalshape$type <- 2 #change it to circle
+
+itol.toolkit::write_unit(AF4, "./Results/03_differential_abundance/ITS_iTOL")
+
+
+
+
+
+```
+
+```{r LFC-heatmap}
+
+df_LFCna
+df_LFCna[df_LFCna == 0] <- NA
+
+
+#get Annotation 
+AFX <- itol.toolkit::create_unit(data = df_LFCna , 
+                         key = "AF4_LFC_Heatmap", 
+                         type = "DATASET_HEATMAP",
+                         tree = ITS_tree)  #works
+
+AFX@data$tip[AFX@data$tip == 0] <- NA #change cero's to NA's
+
+#select colors 
+AFX@specific_themes$heatmap$color$min <- "#295e10"
+AFX@specific_themes$heatmap$color$max <- "#590950"
+AFX@specific_themes$heatmap$color$mid <- "#ebeceb"
+AFX@specific_themes$heatmap$value$mid <- 0
+
+AFX@specific_themes$heatmap$color$nan <- "#FFFFFF"
+
+AFX@specific_themes$heatmap$tree$tree_display <- 0
+
+itol.toolkit::write_unit(AFX, "./Results/03_differential_abundance/ITS_iTOL") #works
+
+```
+
+
+
+
+
+
+Now I need to add the taxonomy and change the labels
+
+```{r Taxonomy}
+#first, let's change it for Family labels
+#Family
+df_labels_F <- df_complete2 %>%
+               dplyr::select(id, Family)
+
+AF6 <- create_unit(data = df_labels_F,
+                       key = "AF6_label_Family",
+                       type = "LABELS",
+                       tree = ITS_tree)
+
+itol.toolkit::write_unit(AF6, "./Results/03_differential_abundance/ITS_iTOL")
+
+#Genus
+df_labels_G <- df_complete2 %>%
+               dplyr::select(id, Genus)
+
+AF7 <- create_unit(data = df_labels_G,
+                       key = "AF7_label_Genus",
+                       type = "LABELS",
+                       tree = ITS_tree)
+
+itol.toolkit::write_unit(AF7, "./Results/03_differential_abundance/ITS_iTOL")
+
+unique(df_complete2$Phylum)
+
+#Make a color strip df for taxonomy for now
+df_Phylum <- df_complete2 %>%
+               dplyr::select(id, Phylum)
+
+df_Phylum$Phylum <- df_Phylum$Phylum %>% replace_na('unasigned')
+
+AF8 <- itol.toolkit::create_unit(data = df_Phylum, 
+                         key = "AF8_Phylum", 
+                         type = "DATASET_COLORSTRIP",
+                         tree = ITS_tree)
+
+itol.toolkit::write_unit(AF8, "./Results/03_differential_abundance/ITS_iTOL")
+
+# Make a range df to color Phylum
+Phylum <- unique(df_Phylum$Phylum) 
+Phylum_color <- color_phylum[1:5]
+Phylum_color <- c("#FB8072", "#8DD3C7", "#FFFFB3", "#BEBADA", "#80B1D3")
+
+#make it a df
+df_phyla_col <- data.frame(Phylum,Phylum_color)
+
+#merge with df_Phylum
+df_Phylum <- df_Phylum%>%
+            dplyr::inner_join(df_phyla_col)
+
+AF9 <- create_unit(data = df_Phylum, 
+                      key = "AF9_Phylum_colors", 
+                      type = "TREE_COLORS", 
+                      subtype = "range",
+                      tree = ITS_tree)
+
+itol.toolkit::write_unit(AF9, "./Results/03_differential_abundance/ITS_iTOL")
+
+#Finally, make a strip df for life-style
+df_trophic <- df_complete2 %>%
+               dplyr::select(id, Trophic.Mode)
+
+unique(df_trophic$Trophic.Mode) #7
+
+AF10 <- itol.toolkit::create_unit(data = df_trophic, 
+                         key = "AF10_Trophic_mode", 
+                         type = "DATASET_COLORSTRIP",
+                         tree = ITS_tree)
+
+itol.toolkit::write_unit(AF10, "./Results/03_differential_abundance/ITS_iTOL")
+
+
+
+
+```
+
+
+## Raw abundances
+Quickly plot the raw abundances of those DA ASVs to check them
+
+```{r}
+#temp
+otu_table <- as.data.frame(otu_table(ps_DA))
+otu_table <- otu_table %>% mutate(id=rownames(.))
+
+df_complete3 <- left_join(df_complete2, otu_table, by="id")
+str(df_complete3)
+
+df_complete4[c(1:2,4:12)] <- lapply(df_complete4[c(1:2,4:12)], factor)
+
+#make it long
+long <- df_complete3 %>% 
+              tidyr::pivot_longer(cols = c(22:145), 
+              names_to = "sample",
+              values_to = "raw_counts",
+              values_drop_na = TRUE)
+
+#almost ready, I just need a column with plant_pathway_induced based on sample
+df_samples <- data.frame(sample_data(ps_ITS))
+df_samples <- df_samples %>% mutate(sample=rownames(.))%>%
+              dplyr::select(c('sample', 'plant_pathway_induced')) %>% 
+              mutate(plant_pathway_induced=factor(plant_pathway_induced))
+
+levels(df_samples$plant_pathway_induced) <- c("Control", "Control", "JA" ,"SA")    
+
+#now I just need to add this with some join
+long_complete <- dplyr::left_join(long, df_samples, by="sample")
+str(long_complete)
+long_complete[c(1,4,7:22)] <- lapply(long_complete[c(1,4,7:22)], factor)
+
+# Set colors
+#Set colors
+color_pathway_induced <- c("#BFBFBF", "#E69F00", "#4472C4")
+color_experiment <- c("#CC3399", "#70AD47")
+color_ctrl_vs_JA <- c("#BFBFBF", "#E69F00")
+color_ctrl_vs_SA <- c("#BFBFBF", "#4472C4")
+
+
+plot <- ggplot(data=subset(long_complete, Experiment=="phytohormones" &
+                           DA_phyto=="JA_and_SA"),
+               aes(x=plant_pathway_induced, y=raw_counts), fill=plant_pathway_induced)+
+        geom_violin(alpha=0.9, colour="black", linewidth=0.6, aes(fill=plant_pathway_induced))+
+        scale_fill_manual(values = color_pathway_induced)+
+        facet_wrap(id~Experiment, scales="free", ncol=6)+
+        geom_jitter(position = position_jitter(w = 0.1, h = 0),
+                        size=1, shape=20, alpha=0.8, aes(fill=plant_pathway_induced))
+
+levels(long_complete$DA_phyto)
+ggplot(data=subset(long_complete, Experiment=="insects" &
+                           DA_insects=="SA_Only"),
+               aes(x=plant_pathway_induced, y=raw_counts), fill=plant_pathway_induced)+
+        geom_violin(alpha=0.9, colour="black", linewidth=0.6, aes(fill=plant_pathway_induced))+
+        scale_fill_manual(values = color_pathway_induced)+
+        facet_wrap(id~Experiment, scales="free", ncol=6)+
+        geom_jitter(position = position_jitter(w = 0.1, h = 0),
+                        size=1, shape=20, alpha=0.8, aes(fill=plant_pathway_induced))
+
+
+```
 
 

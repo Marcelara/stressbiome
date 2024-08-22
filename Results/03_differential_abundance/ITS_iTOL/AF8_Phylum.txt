@@ -1,0 +1,76 @@
+DATASET_COLORSTRIP
+SEPARATOR TAB
+DATASET_LABEL	AF8_Phylum
+COLOR	#ff0000
+LEGEND_TITLE	Phylum
+LEGEND_POSITION_X	100
+LEGEND_POSITION_Y	100
+LEGEND_HORIZONTAL	1
+LEGEND_SHAPES	1	1	1	1	1
+LEGEND_COLORS	#a6cee3	#1f78b4	#b2df8a	#33a02c	#fb9a99
+LEGEND_LABELS	Ascomycota	Basidiomycota	Chytridiomycota	Mortierellomycota	unasigned
+SHOW_INTERNAL	0
+MARGIN	0
+BORDER_WIDTH	1
+BORDER_COLOR	#000
+STRIP_WIDTH	25
+COLOR_BRANCHES	1
+DATA
+fASV_238	#fb9a99	unasigned
+fASV_52	#1f78b4	Basidiomycota
+fASV_270	#b2df8a	Chytridiomycota
+fASV_75	#b2df8a	Chytridiomycota
+fASV_77	#b2df8a	Chytridiomycota
+fASV_985	#a6cee3	Ascomycota
+fASV_373	#a6cee3	Ascomycota
+fASV_1080	#1f78b4	Basidiomycota
+fASV_90	#33a02c	Mortierellomycota
+fASV_57	#33a02c	Mortierellomycota
+fASV_80	#33a02c	Mortierellomycota
+fASV_194	#33a02c	Mortierellomycota
+fASV_22	#33a02c	Mortierellomycota
+fASV_1467	#33a02c	Mortierellomycota
+fASV_821	#33a02c	Mortierellomycota
+fASV_49	#1f78b4	Basidiomycota
+fASV_513	#1f78b4	Basidiomycota
+fASV_180	#1f78b4	Basidiomycota
+fASV_221	#fb9a99	unasigned
+fASV_162	#a6cee3	Ascomycota
+fASV_15	#a6cee3	Ascomycota
+fASV_240	#a6cee3	Ascomycota
+fASV_195	#a6cee3	Ascomycota
+fASV_187	#a6cee3	Ascomycota
+fASV_298	#a6cee3	Ascomycota
+fASV_160	#a6cee3	Ascomycota
+fASV_87	#a6cee3	Ascomycota
+fASV_215	#a6cee3	Ascomycota
+fASV_39	#a6cee3	Ascomycota
+fASV_532	#a6cee3	Ascomycota
+fASV_854	#a6cee3	Ascomycota
+fASV_349	#a6cee3	Ascomycota
+fASV_1718	#a6cee3	Ascomycota
+fASV_125	#a6cee3	Ascomycota
+fASV_97	#a6cee3	Ascomycota
+fASV_456	#a6cee3	Ascomycota
+fASV_285	#a6cee3	Ascomycota
+fASV_961	#a6cee3	Ascomycota
+fASV_172	#a6cee3	Ascomycota
+fASV_446	#a6cee3	Ascomycota
+fASV_136	#a6cee3	Ascomycota
+fASV_128	#a6cee3	Ascomycota
+fASV_653	#a6cee3	Ascomycota
+fASV_545	#a6cee3	Ascomycota
+fASV_1328	#a6cee3	Ascomycota
+fASV_515	#a6cee3	Ascomycota
+fASV_401	#a6cee3	Ascomycota
+fASV_490	#a6cee3	Ascomycota
+fASV_333	#a6cee3	Ascomycota
+fASV_170	#a6cee3	Ascomycota
+fASV_166	#a6cee3	Ascomycota
+fASV_186	#a6cee3	Ascomycota
+fASV_252	#a6cee3	Ascomycota
+fASV_135	#a6cee3	Ascomycota
+fASV_228	#a6cee3	Ascomycota
+fASV_189	#a6cee3	Ascomycota
+fASV_139	#a6cee3	Ascomycota
+fASV_137	#a6cee3	Ascomycota
