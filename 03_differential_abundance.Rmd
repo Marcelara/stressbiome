@@ -618,10 +618,10 @@ gc()
 load("./amplicon_data/Phyloseq_objects/ps_16S.RData")
 
 #load phyto data
-#load("./Results/03_differential_abundance/Phyto_dataDA_16S.Rdata")
+load("./Results/03_differential_abundance/Phyto_dataDA_16S.Rdata")
 
 #load insects data
-#load("./Results/03_differential_abundance/Insects_dataDA_16S.Rdata")
+load("./Results/03_differential_abundance/Insects_dataDA_16S.Rdata")
 
 #check name of ASVs to prune a ps 
 p <- rownames(phyto_dataDA$ps@tax_table)
@@ -640,6 +640,44 @@ Bac_tree$tip.label
 
 #save it
 ape::write.tree(Bac_tree, "./Results/03_differential_abundance/16S_iTOL/16S_DA_tree.tre")
+
+#Now, let's get the sequences to make a new tree as the default one with DADA2 is not great
+#get the sequences and save them as FASTA format
+ps_DA %>%
+refseq() %>%
+Biostrings::writeXStringSet("./Results/03_differential_abundance/16S_iTOL/selected_asvs.fna",
+             append=FALSE,compress=FALSE,
+             compression_level=NA, format="fasta")
+
+
+#4. Load phylogenetic tree 
+new_tree <- read.tree("./Results/03_differential_abundance/16S_iTOL/16S_DA_tree_IQTREE.tre")
+new_tree <- ape::multi2di(new_tree) #root it
+plot(new_tree)
+
+#check
+new_tree
+
+#change tree in the ps object
+#copy ps 
+ps_DA_tree <- ps_DA
+
+#change it for new
+ps_DA_tree@phy_tree <- new_tree
+
+#compare it
+ps_DA@phy_tree
+ps_DA_tree@phy_tree #this new tree is rooted 
+
+#save it
+ape::write.tree(new_tree, "./Results/03_differential_abundance/16S_iTOL/16S_DA_tree_IQTREE_rooted.tre")
+
+#call it again
+Bac_tree <- ps_DA@phy_tree
+
+#clean
+rm(ps_DA_tree)
+
 
 ```
 
@@ -737,6 +775,7 @@ df_complete2 <- left_join(df_complete, tax_table)
 
 #clean the phyloseq object 
 rm(ps_16S)
+gc()
 
 ```
 
@@ -812,31 +851,32 @@ df_Treatment2 <- df_Treatment %>%
                 mutate(DA_JA_insects=case_when(DA_JA_insects== "YES" ~ "1", TRUE ~ "-1")) %>%
                 mutate(DA_SA_insects=case_when(DA_SA_insects== "YES" ~ "1", TRUE ~ "-1"))
 
-## By treatment
-#JA
-JA <- df_Treatment2 %>% dplyr::select(id, DA_JA_phyto, DA_JA_insects)
-AF2.1 <- itol.toolkit::create_unit(data = JA, 
-                         key = "AF2.1_Treatment_JA", 
+## By Experiment
+#Phyto
+Phyto <- df_Treatment2 %>% dplyr::select(id, DA_JA_phyto, DA_SA_phyto)
+AF2.1 <- itol.toolkit::create_unit(data = Phyto, 
+                         key = "AF2.1_Treatment_Phyto", 
                          type = "DATASET_BINARY",
                          tree = Bac_tree)
 
-AF2.1@field$labels <- c("JA_phyto",  "JA_insects")
-AF2.1@field$colors <- c("#E69F00",  "#E69F00")
+AF2.1@field$labels <- c("JA_phyto",  "SA_phyto")
+AF2.1@field$colors <- c("#E69F00",  "#4472C4")
 
 itol.toolkit::write_unit(AF2.1, "./Results/03_differential_abundance/16S_iTOL")
 
-#SA
-SA <- df_Treatment2 %>% dplyr::select(id, DA_SA_phyto, DA_SA_insects)
-AF2.2 <- itol.toolkit::create_unit(data = SA, 
-                         key = "AF2.2_Treatment_SA", 
+#Insects
+insects <- df_Treatment2 %>% dplyr::select(id, DA_JA_insects, DA_SA_insects)
+AF2.2 <- itol.toolkit::create_unit(data = insects, 
+                         key = "AF2.2_Treatment_insects", 
                          type = "DATASET_BINARY",
                          tree = Bac_tree)
 
-AF2.2@field$labels <- c("SA_phyto",  "SA_insects")
-AF2.2@field$colors <- c("#4472C4", "#4472C4")
+AF2.2@field$labels <- c("JA_insects",  "SA_insects")
+AF2.2@field$colors <- c("#E69F00",  "#4472C4")
 
 itol.toolkit::write_unit(AF2.2, "./Results/03_differential_abundance/16S_iTOL")
-````
+
+```
 
 Independently
 ```{r Treatment-independently}
@@ -889,62 +929,90 @@ itol.toolkit::write_unit(AF3.4, "./Results/03_differential_abundance/16S_iTOL")
 
 ```
 
-
 LFC
 ```{r LFC-heatmap}
 
-## LFC, phyto
+## LFC dataset
 df_LFC <- df_complete2%>%
                 dplyr::select(id,lfc_JA_phyto, lfc_JA_insects, lfc_SA_phyto, lfc_SA_insects)%>%
                 relocate(id)%>%
                 as.tibble()
-
 #let's round up
 df_LFC <- df_LFC %>% 
           dplyr::mutate(across(where(is.numeric), round, 2))
 
-JA <- df_LFC %>% dplyr::select(id, lfc_JA_phyto, lfc_JA_insects)
+#First, lets make a single df 
+df_LFC_unique <- full_join(df_Treatment,df_LFC)
+#Now let's apply some rules
+df_LFC_unique <- df_LFC_unique %>%
+                  mutate(lfc_JA_phyto=
+                           case_when(DA_JA_phyto == "NO" ~ NA, TRUE ~ lfc_JA_phyto))%>% 
+                  mutate(lfc_SA_phyto=
+                           case_when(DA_SA_phyto == "NO" ~ NA, TRUE ~ lfc_SA_phyto))%>% 
+                  mutate(lfc_JA_insects=
+                           case_when(DA_JA_insects == "NO" ~ NA, TRUE ~ lfc_JA_insects))%>% 
+                  mutate(lfc_SA_insects=
+                           case_when(DA_SA_insects == "NO" ~ NA, TRUE ~ lfc_SA_insects))
+
+#By experiment
+Phyto <-  df_LFC_unique %>% dplyr::select(id, lfc_JA_phyto, lfc_SA_phyto)
 
 #get Annotation File for Heatmap
-AF4.1 <- itol.toolkit::create_unit(data = JA , 
-                         key = "AF4_LFC_Heatmap_JA", 
+AF3.1 <- itol.toolkit::create_unit(data = Phyto , 
+                         key = "AF3.1_LFC_Heatmap_Phyto", 
                          type = "DATASET_HEATMAP",
                          tree = Bac_tree)  #works
 
-AF4.1@data$tip[AF4.1@data$tip == 0] <- NA
+AF3.1@data$tip[AF3.1@data$tip == 0] <- NA
+
+#choose colors
+display.brewer.pal(n=8, name='RdBu') #see palette
+color_heatmap <- brewer.pal(n = 8, name = "RdBu") #get colors
+min <- color_heatmap[8]
+max <- color_heatmap[1]
 
 #select colors 
-AF4.1@specific_themes$heatmap$color$min <- "#295e10"
-AF4.1@specific_themes$heatmap$color$max <- "#590958"
-AF4.1@specific_themes$heatmap$color$mid <- "#ebeceb"
-AF4.1@specific_themes$heatmap$value$mid <- 0
-AF4.1@specific_themes$heatmap$color$nan <- "#FFFFFF"
+AF3.1@specific_themes$heatmap$color$min <- min
+AF3.1@specific_themes$heatmap$color$max <- max
+AF3.1@specific_themes$heatmap$color$mid <- "#ebeceb"
+AF3.1@specific_themes$heatmap$value$mid <- 0
+AF3.1@specific_themes$heatmap$color$nan <- "#FFFFFF"
 
-AF4.1@specific_themes$heatmap$tree$tree_display <- 0
+#change range so the colors mean the same across experiment and treatment
+AF3.1@specific_themes$heatmap$value$max <- 2.75
+AF3.1@specific_themes$heatmap$value$min <- -2.55
+AF3.1@specific_themes$heatmap$value$mid <- 0
 
-itol.toolkit::write_unit(AF4.1, "./Results/03_differential_abundance/16S_iTOL") #works
+AF3.1@specific_themes$heatmap$tree$tree_display <- 0 #no display of tree in heatmap
 
-#SA
-SA <- df_LFC %>% dplyr::select(id, lfc_SA_phyto, lfc_SA_insects)
+itol.toolkit::write_unit(AF3.1, "./Results/03_differential_abundance/16S_iTOL") #works
+
+#By experiment
+Insects <-  df_LFC_unique %>% dplyr::select(id, lfc_JA_insects, lfc_SA_insects)
 
 #get Annotation File for Heatmap
-AF4.2 <- itol.toolkit::create_unit(data = SA , 
-                         key = "AF4.2_LFC_Heatmap_SA", 
+AF3.2 <- itol.toolkit::create_unit(data = Insects , 
+                         key = "AF3.2_LFC_Heatmap_Insects", 
                          type = "DATASET_HEATMAP",
                          tree = Bac_tree)  #works
 
-AF4.2@data$tip[AF4.2@data$tip == 0] <- NA
+AF3.2@data$tip[AF3.2@data$tip == 0] <- NA
 
 #select colors 
-AF4.2@specific_themes$heatmap$color$min <- "#295e10"
-AF4.2@specific_themes$heatmap$color$max <- "#590958"
-AF4.2@specific_themes$heatmap$color$mid <- "#ebeceb"
-AF4.2@specific_themes$heatmap$value$mid <- 0
-AF4.2@specific_themes$heatmap$color$nan <- "#FFFFFF"
+AF3.2@specific_themes$heatmap$color$min <- min
+AF3.2@specific_themes$heatmap$color$max <- max
+AF3.2@specific_themes$heatmap$color$mid <- "#ebeceb"
+AF3.2@specific_themes$heatmap$value$mid <- 0
+AF3.2@specific_themes$heatmap$color$nan <- "#FFFFFF"
 
-AF4.2@specific_themes$heatmap$tree$tree_display <- 0
+#change range so the colors mean the same across experiment and treatment
+AF3.2@specific_themes$heatmap$value$max <- 2.75
+AF3.2@specific_themes$heatmap$value$min <- -2.55
+AF3.2@specific_themes$heatmap$value$mid <- 0
 
-itol.toolkit::write_unit(AF4.2, "./Results/03_differential_abundance/16S_iTOL") #works
+AF3.2@specific_themes$heatmap$tree$tree_display <- 0 #no display of tree in heatmap
+
+itol.toolkit::write_unit(AF3.2, "./Results/03_differential_abundance/16S_iTOL") #works
 
 ```
 
@@ -957,12 +1025,13 @@ Now I need to add the taxonomy and change the labels
 df_labels_F <- df_complete2 %>%
                dplyr::select(id, Family)
 
-AF5 <- create_unit(data = df_labels_F,
-                       key = "AF5_label_Family",
+AF4 <- create_unit(data = df_labels_F,
+                       key = "AF4_label_Family",
                        type = "LABELS",
                        tree = Bac_tree)
 
-itol.toolkit::write_unit(AF5, "./Results/03_differential_abundance/16S_iTOL")
+itol.toolkit::write_unit(AF4, "./Results/03_differential_abundance/16S_iTOL")
+
 
 #Genus
 df_labels_G <- df_complete2 %>%
@@ -974,44 +1043,45 @@ df_labels_G <- df_labels_G %>% mutate(number=str_split_i(df_labels_G$id, "_", 2)
                                 mutate(Genus=gsub("NA", "fASV", .$Genus))%>%
                                 dplyr::select(-number) #ok
                                       
-AF6 <- create_unit(data = df_labels_G,
-                       key = "AF6_label_Genus",
+AF5 <- create_unit(data = df_labels_G,
+                       key = "AF5_label_Genus",
                        type = "LABELS",
                        tree = Bac_tree)
 
-itol.toolkit::write_unit(AF6, "./Results/03_differential_abundance/16S_iTOL")
+itol.toolkit::write_unit(AF5, "./Results/03_differential_abundance/16S_iTOL")
 
 
 #Make a range df for Phylum now
 df_Phylum <- df_complete2 %>%
-               dplyr::select(id, Phylum)
+               dplyr::select(id, Phylum, Class)
+
+df_Phylum <- df_Phylum %>% mutate(Phylum=case_when(
+                          Class==" Alphaproteobacteria" ~ " Alphaproteobacteria",
+                          Class == " Gammaproteobacteria" ~ " Gammaproteobacteria",
+                          TRUE ~ Phylum))
 
 #make a vector with colors 
-Phylum <- unique(df_Phylum$Phylum) #10
-colourCount <- 10
-getPalette <- colorRampPalette(brewer.pal(colourCount, "Pastel2"))
-color_phylum <- getPalette(colourCount)
-color_phylum <- c("#FBB4AE", "#BBCADD", "#C6E4CB", "#D8D5D9", "#EFD2C1", "#FEE9B6", "#F6F2C7", "#EAD8C7", "#FBDCEC" ,"#F2F2F2")
-
+Phylum <- unique(df_Phylum$Phylum) #11
+Phylum <- sort(Phylum)
+color_phylum <- c("#FDB462","#8DD3C7","#FFFFB3", "#FB8072","#80B1D3","#8DD3D2",
+                  "#FCCDE5", "#BC80BD","#BEBADA", "#B3DE69", "#CCEBC5")
 
 #make it a df
 df_phyla_col <- data.frame(Phylum, color_phylum)
 
 #merge with df_Phylum
 df_Phylum <- df_Phylum%>%
+             dplyr::select(-Class) %>% 
              dplyr::inner_join(df_phyla_col)
 
-AF7 <- create_unit(data = df_Phylum, 
-                      key = "AF7_Phylum_colors", 
+AF6 <- create_unit(data = df_Phylum, 
+                      key = "AF6_Phylum_colors", 
                       type = "TREE_COLORS", 
                       subtype = "range",
                       tree = Bac_tree)
 
-itol.toolkit::write_unit(AF7, "./Results/03_differential_abundance/16S_iTOL")
+itol.toolkit::write_unit(AF6, "./Results/03_differential_abundance/16S_iTOL")
 ```
-
-
-
 
 
 #ITS
