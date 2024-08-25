@@ -316,6 +316,46 @@ Now I can continue analyzing each experiment independently, and focusing in Rich
 ####Richness
 ```{r}
 
+
+
+
+
+
+#run the model 
+lm <- lm(df$Observed ~ plant_pathway_induced + libsize_after_filtering,
+                data=df)
+
+#look at the results 
+#Option 1
+car::Anova(model, type="III", test.statistic="F")
+
+#Option 2
+summary(lm)
+
+#check if assumptions are met
+simulateResiduals(model, plot=T) #using DHARMa and fitdistrplus package 
+hist(resid(model)) #normalish
+qqnorm(resid(model)) #also
+
+#see differences between treatments 
+plot(emmeans(lm, pairwise ~  plant_pathway_induced)) #emmean package 
+obs.emmeans <- emmeans(lm, pairwise ~  plant_pathway_induced)
+
+#change it to df 
+df_lm <- as.data.frame(lm) #not sure, you have to check if this is the way
+df_emmeans <- obs.emmeans$contrasts %>% summary(infer=TRUE) %>% as.data.frame()
+
+#save results with rempsyc package
+table_lm <- nice_table(df_lm,
+              title = c("Table X. Results of Linear Model testing alpha diversity metrics for ITS communities"))
+              
+flextable::save_as_docx(table_lm, path =  "./Tables/01_alpha_beta_diversity/both_alpha_lm_ITS.docx") #saves the table in word
+
+#repeat for emmeans results 
+
+
+
+
 ##1.Observed/Richness
 obs <- lapply(richness, function(df){
         lm(df$Observed ~ plant_pathway_induced + libsize_after_filtering,

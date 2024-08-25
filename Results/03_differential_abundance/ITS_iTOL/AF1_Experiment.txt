@@ -6,9 +6,9 @@ LEGEND_TITLE	Experiment
 LEGEND_POSITION_X	100
 LEGEND_POSITION_Y	100
 LEGEND_HORIZONTAL	0
-LEGEND_SHAPES	1	1	1
-LEGEND_COLORS	#000000	#70AD47	#CC3399
-LEGEND_LABELS	Both	Herbivore-induced	Phytohormone-induced
+LEGEND_SHAPES	1	1
+LEGEND_COLORS	#d95f02	#1b9e77
+LEGEND_LABELS	Herbivore-induced	Phytohormone-induced
 SHOW_INTERNAL	0
 MARGIN	0
 BORDER_WIDTH	1
@@ -36,12 +36,12 @@ fASV_513	#CC3399	phytohormones
 fASV_180	#CC3399	phytohormones
 fASV_221	#70AD47	insects
 fASV_162	#70AD47	insects
-fASV_15	#000000	Both
+fASV_15	#CC3399	phytohormones
 fASV_240	#CC3399	phytohormones
 fASV_195	#CC3399	phytohormones
 fASV_187	#CC3399	phytohormones
 fASV_298	#CC3399	phytohormones
-fASV_160	#000000	Both
+fASV_160	#CC3399	phytohormones
 fASV_87	#70AD47	insects
 fASV_215	#CC3399	phytohormones
 fASV_39	#CC3399	phytohormones
@@ -66,7 +66,7 @@ fASV_401	#70AD47	insects
 fASV_490	#CC3399	phytohormones
 fASV_333	#CC3399	phytohormones
 fASV_170	#CC3399	phytohormones
-fASV_166	#000000	Both
+fASV_166	#CC3399	phytohormones
 fASV_186	#70AD47	insects
 fASV_252	#70AD47	insects
 fASV_135	#CC3399	phytohormones
