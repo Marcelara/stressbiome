@@ -194,6 +194,79 @@ uni <- lapply(ITS_CSS, function(ps){ distance(ps, "unifrac")})
 ```
 
 ##Ordination Plots
+
+###Full
+```{r}
+
+dist <- list(bray=bray_full, uni=uni_full) #make it a list
+
+#First get a short version of sample data df 
+df_info_16S <- sample_data(ps_16S) %>% 
+               data.frame() %>% 
+               dplyr::select(Experiment, plant_pathway_induced)%>%
+               mutate(sample_name=rownames(.))%>%
+               filter(Experiment %in% c("cond_real_insects", "cond_phytohormones"))
+
+#call function
+get_UMAP_coordenates <- function(x){
+  
+  #dist is a list of distances previously calculated
+  umap <- umap(as.matrix(x))
+  umap_scores <- as.data.frame(umap$layout)
+  colnames(umap_scores) <- c("UMAP1", "UMAP2")
+  umap_scores$sample_name <- rownames(umap_scores)
+  umap_scores <- umap_scores %>% relocate(sample_name)
+  return(umap_scores)
+    
+}
+
+#get coordinates
+df_UMAP <- lapply(dist, function(x){ get_UMAP_coordenates(x)})
+
+#Now merge it with df 
+df_UMAP <- lapply(df_UMAP, function(df){
+  x <- left_join(df, df_info_16S, by="sample_name")
+  x <- x %>% relocate(sample_name, Experiment, plant_pathway_induced)
+})
+
+
+#call function
+plot_UMAP <- function(x,title){
+  #x is df 
+  #title is the name of the title in between ""
+  
+  p <- ggplot(x, aes(x=UMAP1,y=UMAP2, color=plant_pathway_induced)) +
+  geom_point(aes(color=plant_pathway_induced, shape=Experiment), size=4)+ # individual sample values
+  #coord_fixed()+ # same axis scaling
+  scale_color_manual(values=color_stress)+
+  ggtitle(title)
+  return(p)
+}
+
+#Plot it
+u.Bray <- plot_UMAP(df_UMAP$bray, "Bray")
+u.uni <- plot_UMAP(df_UMAP$uni, "Unifrac")
+
+#Make it a single figure 
+ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
+
+#save plot
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/02_beta_diversity",
+  scale = 2,
+  width = 1500,
+  height = 800,
+  units = "px",
+  dpi = 300),
+x=c("UMAP_Phyto-Insects_16S.svg","UMAP_Phyto-Insects_16S.png"))
+
+```
+
+
+
 ###Phyto
 Focus for now in nMDS and UMAP for Phyto
 ```{r}
@@ -721,13 +794,13 @@ lapply(Bac_exp_f, function(ps) summarize_phyloseq(ps)[[6]])#63-64 and 74%
 #remove EPG
 #make a copy
 ps_Bac_f <- ps_16S
-#ps_Bac_f <- subset_samples(ps_Bac_f, Experiment %in% c("cond_real_insects", "cond_phytohormones"))
-#ps_Bac_f <- prune_taxa(taxa_sums(ps_Bac_f) >0, ps_Bac_f)
+ps_Bac_f <- subset_samples(ps_Bac_f, Experiment %in% c("cond_real_insects", "cond_phytohormones"))
+ps_Bac_f <- prune_taxa(taxa_sums(ps_Bac_f) >0, ps_Bac_f)
 
 #Get ASVs to keep
 ra_ps <- transform_sample_counts(ps_Bac_f, function(x) x/sum(x))#change it to relative abundance
-ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.0001, prune = TRUE)#filter out less than 0.001%
-p_f <- phyloseq_filter_prevalence(ra_ps, prev.trh=0.1, abund.trh=NULL)#filter out not present in <10% samples
+ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.00001, prune = TRUE)#filter out less than 0.0001%
+p_f <- phyloseq_filter_prevalence(ra_f, prev.trh=0.1, abund.trh=NULL)#filter out not present in <10% samples
 asvs <- rownames(p_f@otu_table) #get names of ASVs
 length(asvs) #get how many
 
@@ -735,7 +808,7 @@ length(asvs) #get how many
 ps_Bac_f <- subset_taxa(ps_Bac_f, ASV %in% asvs)
 
 #see how many reads were kept
-sum(taxa_sums(ps_Bac_f))/sum(taxa_sums(ps_16S)) #89%
+sum(taxa_sums(ps_Bac_f))/sum(taxa_sums(ps_16S)) #59%
 mean(taxa_sums(ps_Bac_f))
 mean(sample_sums(ps_Bac_f))
 #89% with final average of 3,808 reads per ASV and 71,508 reads per sample 
@@ -762,17 +835,31 @@ head(otu_table(ps_Bac_css))#ok
 
 #calculate distance matrix, using 2 different indexes
 
+#First with full ps
+
 #Bray-Curtis
-bray <- lapply(Bac_CSS, function(ps){ phyloseq::distance(ps, "bray")})
+bray_full <- phyloseq::distance(ps_Bac_css, "bray")
 
 #Unifrac
-uni <- lapply(Bac_CSS, function(ps){ phyloseq::distance(ps, "unifrac")}) #problem
+uni_full <- phyloseq::distance(ps_Bac_css, "unifrac") #problem
 
 # there is a problem because the roots of the trees were probably prunned in the filtering step
 # and then it goes a bit crazy, solution is to re-root or resolve multicotomies 
 # used ape::multi2di(tree) to solve it
 #thank you!: https://github.com/joey711/phyloseq/issues/936
 
+ps_Bac_css@phy_tree <- ape::multi2di(ps_Bac_css@phy_tree) #change it
+
+#Run Unifrac again
+uni_full <- phyloseq::distance(ps_Bac_css, "unifrac") #ok
+
+
+#Now per experiment
+
+#Bray-Curtis
+bray <- lapply(Bac_CSS, function(ps){ phyloseq::distance(ps, "bray")})
+
+# first fix tree
 Bac_CSS <- lapply(Bac_CSS, function(ps){
   
   tree <- ps@phy_tree
@@ -787,6 +874,78 @@ uni <- lapply(Bac_CSS, function(ps){ phyloseq::distance(ps, "unifrac")}) #ok
 ```
 
 ##Ordination Plots
+
+###Full
+```{r}
+
+dist <- list(bray=bray_full, uni=uni_full) #make it a list
+
+#First get a short version of sample data df 
+df_info_16S <- sample_data(ps_16S) %>% 
+               data.frame() %>% 
+               dplyr::select(Experiment, plant_pathway_induced)%>%
+               mutate(sample_name=rownames(.))%>%
+               filter(Experiment %in% c("cond_real_insects", "cond_phytohormones"))
+
+#call function
+get_UMAP_coordenates <- function(x){
+  
+  #dist is a list of distances previously calculated
+  umap <- umap(as.matrix(x))
+  umap_scores <- as.data.frame(umap$layout)
+  colnames(umap_scores) <- c("UMAP1", "UMAP2")
+  umap_scores$sample_name <- rownames(umap_scores)
+  umap_scores <- umap_scores %>% relocate(sample_name)
+  return(umap_scores)
+    
+}
+
+#get coordinates
+df_UMAP <- lapply(dist, function(x){ get_UMAP_coordenates(x)})
+
+#Now merge it with df 
+df_UMAP <- lapply(df_UMAP, function(df){
+  x <- left_join(df, df_info_16S, by="sample_name")
+  x <- x %>% relocate(sample_name, Experiment, plant_pathway_induced)
+})
+
+
+#call function
+plot_UMAP <- function(x,title){
+  #x is df 
+  #title is the name of the title in between ""
+  
+  p <- ggplot(x, aes(x=UMAP1,y=UMAP2, color=plant_pathway_induced)) +
+  geom_point(aes(color=plant_pathway_induced, shape=Experiment), size=4)+ # individual sample values
+  #coord_fixed()+ # same axis scaling
+  scale_color_manual(values=color_stress)+
+  ggtitle(title)
+  return(p)
+}
+
+#Plot it
+u.Bray <- plot_UMAP(df_UMAP$bray, "Bray")
+u.uni <- plot_UMAP(df_UMAP$uni, "Unifrac")
+
+#Make it a single figure 
+ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
+
+#save plot
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/02_beta_diversity",
+  scale = 2,
+  width = 1500,
+  height = 800,
+  units = "px",
+  dpi = 300),
+x=c("UMAP_Phyto-Insects_16S.svg","UMAP_Phyto-Insects_16S.png"))
+
+```
+
+
 ###Phyto
 Focus for now in nMDS and UMAP for Phyto
 ```{r}
@@ -1025,12 +1184,12 @@ df_info_16S
 set.seed(123)
 
 perm_full_bray <- adonis2(formula=distance(ps_Bac_css, "bray") 
-                          ~ Experiment + plant_pathway_induced + libsize_after_filtering,
+                          ~ Experiment + plant_pathway_induced,
                      data=as(sample_data(ps_Bac_css), "data.frame"),
                      permutations = 999, by="margin") #no
 
 perm_full_uni <- adonis2(formula=distance(ps_Bac_css, "unifrac") 
-                          ~ Experiment +plant_pathway_induced + libsize_after_filtering,
+                          ~ Experiment +plant_pathway_induced,
                      data=as(sample_data(ps_Bac_css), "data.frame"),
                      permutations = 999, by="margin") #no, but barely
 
@@ -1052,7 +1211,7 @@ permanova_full <- rbind(perm_full_bray, perm_full_uni)
 #save it
 table <- nice_table(permanova_full ,
               title = c("Table X. PERMANOVA for the full 16S community"))
-flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/full_permanova_16S.docx")
+flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/full_permanova_16S_BothExperiments.docx")
 
 ```
 
