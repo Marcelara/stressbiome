@@ -743,8 +743,8 @@ ps_16S_split <- lapply(ps_16S_split, function(ps){
 asvs_to_keep <- lapply(ps_16S_split, function(ps){
   
   ra_ps <- transform_sample_counts(ps, function(x) x/sum(x))#change it to relative abundance
-  ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.0001, prune = TRUE)#filter out less than 0.001%
-  p_f <- phyloseq_filter_prevalence(ra_ps, prev.trh=0.1, abund.trh=NULL)#filter out not present in <10% samples
+  ra_f <- filter_taxa(ra_ps, function(x) mean(x) > 0.00001, prune = TRUE)#filter out less than 0.001%
+  p_f <- phyloseq_filter_prevalence(ra_f, prev.trh=0.1, abund.trh=NULL)#filter out not present in <10% samples
   
   asvs <- rownames(p_f@otu_table) #get names of ASVs
   print(length(asvs)) #get how many
@@ -1027,6 +1027,25 @@ s.uni <- merge(df_UMAP$uni,centroids_UMAP$uni, by.x="plant_pathway_induced", by.
 segments_UMAP <- list(bray=s.bray, uni=s.uni)
 rm(s.bray, s.uni)#clean
 
+plot_UMAP <- function(x,y,z,title){
+  #x is df 
+  #y is the centroid df
+  #z is segment df
+  #title is the name of the title in between ""
+  
+  p <- ggplot(x, aes(x=UMAP1,y=UMAP2, color=plant_pathway_induced)) +
+  geom_segment(data = z, # spiders
+               mapping = aes(x=UMAP1, y=UMAP2, 
+                             xend = UMAP1_centroid, yend = UMAP2_centroid),
+               linewidth=0.3) + 
+  geom_point(size=0.9)+ # individual sample values
+  geom_point(data = y, size = 5, alpha=0.9) + # centroids
+  #coord_fixed()+ # same axis scaling
+  scale_color_manual(values=color_stress)+
+  ggtitle(title)
+  return(p)
+}
+
 #Plot it
 u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
 u.uni <- plot_UMAP(df_UMAP$uni, centroids_UMAP$uni, segments_UMAP$uni, "Unifrac")
@@ -1169,8 +1188,6 @@ rm(u.Bray,u.uni, p.Bray, p.uni, )#remove plots
 rm(centroids, centroids_UMAP, segments, segments_UMAP, df_UMAP, df_NMDS)#df's
 
 ```
-
-
 
 
 ##PERMANOVA
