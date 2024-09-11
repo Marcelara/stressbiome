@@ -55,11 +55,11 @@ library(effsize) #Cohen's D
 library(lsr)
 
 library(ropls) #PSLDA
+library(mixOmics) #PSLDA
 library(PERMANOVA)
 library(plsdepot)
 library(santaR)
 library(vegan)
-
 
 ```
 
@@ -71,12 +71,12 @@ library(vegan)
 theme_set(theme_bw())
 
 # Set colors
-color_JA <- rgb(0.9019607843137255, 0.6235294117647059, 0) #yellow-orange
-color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
-color_control <- rgb(0.6,0.6,0.6) #gray
-color_simulated <- rgb(0.8,0.2,0.6) #pink
-color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
-color_non-conditioned <-rgb(1,1,1,1)
+color_JA <- "#E69F00" #yellow-orange
+color_SA <- "#4472C4" #blue
+color_control <- "#BFBFBF" #gray
+color_simulated <- "#CC3399" #pink
+color_real_insects <- "#70AD47"
+color_non_conditioned <-"#FFFFFF"
 
 color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
 color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
@@ -120,10 +120,6 @@ Glucosinolates were analysed by HPLC-UV as described in Burow et.al. (2006). 6-2
 #load data
 gluco <- readRDS("./plant_data/glucosinolates.rds")
 
-#explore 
-summary(gluco)
-colnames(gluco)
-
 #change levels of Experiment
 levels(gluco$Experiment)
 gluco <- gluco %>%
@@ -136,9 +132,29 @@ gluco <-gluco %>%
         subset(ID != "159")%>% #dry sample, no info
         droplevels()
 
+#### classify by Indolic or Aliphatic ####
+indolic <- c("Glu_4OHI3M", "Glu_I3M", "Glu_1MOI3M", "Glu_4MOI3M") 
+aliphatic <- c("Glu_Allyl", "Glu_3MSOP","Glu_4MSOB")
+#make a small df
+values <- c(indolic, aliphatic)
+#Create a vector of names, repeating the vector names accordingly
+names <- c(rep("indolic", length(indolic)), rep("aliphatic", length(aliphatic)))
+# Create the data frame
+key_glucosinolates <- data.frame(type = names, glucosinolate = values)
+#clean
+rm(values,names)
+#### ####
+
+gluco <- gluco %>%
+          relocate(Glu_Allyl,Glu_3MSOP,Glu_4MSOB, .after=weight_mg) %>% 
+          relocate(Glu_4OHI3M,Glu_I3M,Glu_1MOI3M, Glu_4MOI3M, .after=Glu_4MSOB)%>% 
+          mutate(Glu_alyphatic=rowSums(.[11:13]))%>%
+          mutate(Glu_indolic=rowSums(.[14:17]))
+
+
 #make long format for plotting
 long <- gluco %>% 
-              tidyr::pivot_longer(cols = c(11:18), 
+              tidyr::pivot_longer(cols = c(11:20), 
               names_to = "glucosinolate",
               values_to = "concentration",
               values_drop_na = TRUE)
@@ -147,10 +163,10 @@ long <- gluco %>%
 long$glucosinolate <- as.factor(long$glucosinolate)
 
 # Reordering by indolic and aliphatic
-ordered_glucosinolates <- c("Glu_total", "Glu_I3M", "Glu_4OHI3M", "Glu_1MOI3M", "Glu_4MOI3M", "Glu_3MSOP", "Glu_4MSOB", "Glu_Allyl")
+#ordered_glucosinolates <- c("Glu_total", "Glu_I3M", "Glu_4OHI3M", "Glu_1MOI3M", "Glu_4MOI3M", "Glu_3MSOP", "Glu_4MSOB", "Glu_Allyl")
 
-long$glucosinolate <-factor(long$glucosinolate, 
-                             levels = ordered_glucosinolates)
+#long$glucosinolate <-factor(long$glucosinolate, 
+#                             levels = ordered_glucosinolates)
 
 #subsetting df to only conditioning
 conditioning_long <- long %>% 
@@ -163,30 +179,54 @@ conditioning_gluco <- gluco %>%
 
 ```
 
-* Now I have 3 df, gluco, conditioning_long and conditioning_gluco 
+*Now I have 3 df, gluco, conditioning_long and conditioning_gluco 
 
-Plotting quickly
+
+Plot indolic, aliphatic and total
 ```{r}
 
-#plotting quickly
-p <- ggpairs(gluco[c("Experiment","Phase","plant_pathway_induced", "Glu_total")], 
-            mapping = aes(color = Experiment))
+#first filter by those glucosinolates
+long_cond <- conditioning_long %>% filter(
+  glucosinolate %in% c("Glu_alyphatic","Glu_indolic","Glu_total")&
+    Phase == "conditioning")
 
-#adding colors
-p + scale_color_manual(values=color_experiment)+
-           scale_fill_manual(values=color_experiment)
+#Now make a summary df
+df_GLS_p <- long_cond %>% 
+            group_by(Experiment, plant_pathway_induced, glucosinolate) %>%
+  summarise(
+    n = n(),
+    mean = mean(concentration, na.rm = TRUE),
+    sd = sd(concentration, na.rm = TRUE)) %>%
+    mutate(se = sd/sqrt(n))
 
-#only conditioning
-p <- ggpairs(conditioning_long[c("Experiment","plant_pathway_induced", "glucosinolate", "concentration")], 
-            mapping = aes(color = Experiment))
+#Finally, plot it
+ggplot(data = df_GLS_p,
+       mapping = aes(x = glucosinolate, y = mean), colour= plant_pathway_induced)+
+  geom_bar(aes(fill = plant_pathway_induced), stat = "identity",
+           position = position_dodge(0.8), width = 0.7, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = plant_pathway_induced),
+                width = 0.2, position = position_dodge(0.8))+
+  geom_jitter(data = long_cond,
+              mapping = (aes(glucosinolate, concentration,
+                             fill = plant_pathway_induced)),
+              shape = 21, size = 1.5, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  facet_wrap(~Experiment)
 
-#adding colors
-p + scale_color_manual(values=color_experiment)+
-           scale_fill_manual(values=color_experiment)
-
-#clean
-#rm(p)
-#dev.off()
+#save plot
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/03_glucosinolates",
+  scale = 1.8,
+  width = 1200,
+  height = 600,
+  units = "px",
+  dpi = 300),
+x=c("cond_barplot_aliphatic_indolic_total.svg",
+    "cond_barplot_aliphatic_indolic_total.png"))
 
 ```
 
