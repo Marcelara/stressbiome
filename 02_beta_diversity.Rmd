@@ -78,14 +78,14 @@ ps_ITS
 
 #split by experiment 
 ITS_exp <- phyloseq_sep_variable(ps_ITS, variable="Experiment", drop_zeroes = T)
-ITS_exp <- ITS_exp[-3] #let's remove EPG for now
+#ITS_exp <- ITS_exp[-3] #let's remove EPG for now
 
 #Apply filtering to remove low prevalence and abundant ASVs to calculate and plot beta-diversity
 asvs_to_keep <- lapply(ITS_exp, function(ps){
   
   ra_ps <- transform_sample_counts(ps, function(x) x/sum(x))#change it to relative abundance
-  ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.0001, prune = TRUE)#filter out less than 0.001%
-  p_f <- phyloseq_filter_prevalence(ra_ps, prev.trh=0.1, abund.trh=NULL)#filter out not present in <10% samples
+  ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.00001, prune = TRUE)#filter out less than 0.001%
+  p_f <- phyloseq_filter_prevalence(ra_ps, prev.trh=0.05, abund.trh=NULL)#filter out not present in <10% samples
   
   asvs <- rownames(p_f@otu_table) #get names of ASVs
   print(length(asvs)) #get how many
@@ -102,6 +102,8 @@ ITS_exp_f$cond_phytohormones <- subset_taxa(ITS_exp$cond_phytohormones,
 ITS_exp_f$cond_real_insects <- subset_taxa(ITS_exp$cond_real_insects,
                                             ASV %in% asvs_to_keep$cond_real_insects)
 
+ITS_exp_f$EPG <- subset_taxa(ITS_exp$EPG,ASV %in% asvs_to_keep$EPG)
+
 #final check
 ITS_exp_f #ok
 
@@ -117,18 +119,6 @@ sum(sample_sums(ITS_exp_f$cond_phytohormones))/sum(sample_sums(ITS_exp$cond_phyt
 mean(taxa_sums(ITS_exp_f$cond_phytohormones))
 mean(sample_sums(ITS_exp_f$cond_phytohormones))
 #83% phyto with an average of 14,999.47 reads per ASV and 99,498 reads per sample
-
-
-
-ITS_exp_f$cond_phytohormones
-sample_data() %>% 
-    group_by(Experiment, Stress)%>%
-    summarise(Replicates = n(),
-              library_size = mean(libsize_after_filtering),
-              stdev_libsize =sd(libsize_after_filtering))
-
-
-
 
 sum(taxa_sums(ITS_exp_f$cond_real_insects))/sum(taxa_sums(ITS_exp$cond_real_insects)) 
 mean(taxa_sums(ITS_exp_f$cond_real_insects))
@@ -149,8 +139,8 @@ ps_ITS_f <- prune_taxa(taxa_sums(ps_ITS_f) >0, ps_ITS_f)
 
 #Get ASVs to keep
 ra_ps <- transform_sample_counts(ps_ITS_f, function(x) x/sum(x))#change it to relative abundance
-ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.0001, prune = TRUE)#filter out less than 0.001%
-p_f <- phyloseq_filter_prevalence(ra_ps, prev.trh=0.1, abund.trh=NULL)#filter out not present in <10% samples
+ra_f <- filter_taxa(ra_ps, function(x) mean(x) >0.00001, prune = TRUE)#filter out less than 0.001%
+p_f <- phyloseq_filter_prevalence(ra_f, prev.trh=0.05, abund.trh=NULL)#filter out not present in <5% samples
 asvs <- rownames(p_f@otu_table) #get names of ASVs
 length(asvs) #get how many
 
@@ -161,7 +151,7 @@ ps_ITS_f <- subset_taxa(ps_ITS_f, ASV %in% asvs)
 sum(taxa_sums(ps_ITS_f))/sum(taxa_sums(ps_ITS)) 
 mean(taxa_sums(ps_ITS_f))
 mean(sample_sums(ps_ITS_f))
-#48% with final 50,978 reads per ASV and 96,445 reads per sample 
+#51% with final 28,576.28 reads per ASV and 101,947.8 reads per sample 
 
 #clean
 rm(asvs_to_keep, ra_ps, ra_f, p_f)
@@ -183,6 +173,13 @@ head(otu_table(ps_ITS_css))#ok
 ##Distances
 ```{r}
 
+#Full
+bray_full <- phyloseq::distance(ps_ITS_css, "bray")
+
+#Unifrac
+uni_full <- phyloseq::distance(ps_ITS_css, "unifrac")
+
+
 #calculate distance matrix, using 4 different indexes
 
 #Bray-Curtis
@@ -201,7 +198,7 @@ uni <- lapply(ITS_CSS, function(ps){ distance(ps, "unifrac")})
 dist <- list(bray=bray_full, uni=uni_full) #make it a list
 
 #First get a short version of sample data df 
-df_info_16S <- sample_data(ps_16S) %>% 
+df_info_ITS <- sample_data(ps_ITS) %>% 
                data.frame() %>% 
                dplyr::select(Experiment, plant_pathway_induced)%>%
                mutate(sample_name=rownames(.))%>%
@@ -225,7 +222,7 @@ df_UMAP <- lapply(dist, function(x){ get_UMAP_coordenates(x)})
 
 #Now merge it with df 
 df_UMAP <- lapply(df_UMAP, function(df){
-  x <- left_join(df, df_info_16S, by="sample_name")
+  x <- left_join(df, df_info_ITS, by="sample_name")
   x <- x %>% relocate(sample_name, Experiment, plant_pathway_induced)
 })
 
@@ -261,7 +258,7 @@ mapply(function(x)
   height = 800,
   units = "px",
   dpi = 300),
-x=c("UMAP_Phyto-Insects_16S.svg","UMAP_Phyto-Insects_16S.png"))
+x=c("UMAP_Phyto-Insects_ITS.svg","UMAP_Phyto-Insects_ITS.png"))
 
 ```
 
