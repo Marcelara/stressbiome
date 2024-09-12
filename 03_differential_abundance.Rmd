@@ -611,6 +611,56 @@ gc()
 
 ```
 
+##Euler diagrams
+```{r}
+
+library(eulerr)
+
+load("C:/RProjects/stressbiome/R_Environments/03_differential_abundance/16S_iTOL.Rdata")
+
+phyto_dataDA$binary_stress #phyto
+insects_dataDA$binary_stress #insects
+
+#phyto:
+JAp <- sum(phyto_dataDA$binary_stress$plant_pathway_inducedJA) #DA JA
+SAp <- sum(phyto_dataDA$binary_stress$plant_pathway_inducedSA) #DA SA
+Bothp <- sum(phyto_dataDA$binary_stress$plant_pathway_inducedJA & phyto_dataDA$binary_stress$plant_pathway_inducedSA) #how many are shared
+Totalp <- dim(phyto_dataDA$binary_stress)[1] #total number 
+
+#insects
+JAi <- sum(insects_dataDA$binary_stress$plant_pathway_inducedJA) #DA JA
+SAi <- sum(insects_dataDA$binary_stress$plant_pathway_inducedSA) #DA SA
+Bothi <- sum(insects_dataDA$binary_stress$plant_pathway_inducedJA & insects_dataDA$binary_stress$plant_pathway_inducedSA) #how many are shared
+Totali <- dim(insects_dataDA$binary_stress)[1] #total number 
+
+#make df
+df_euler <- c("JAp" = JAp,
+           "SAp" = SAp,
+           "JAp&SAp" = Bothp,
+           "JAi" = JAi,
+           "SAi" = SAi,
+           "JAi&SAi" = Bothi)
+
+#prepare df
+fit <- euler(df_euler, control=list(shape="ellipse", loss="raw"))
+
+#plot euler diagram & save it as svg
+svg("./Plots/03_differential_abundance/euler_diagram_16S.svg",
+    width = 8, height = 6)  # Set the file name and dimensions
+
+plot(fit, 
+     fills = list(fill = c(color_JA, color_SA, color_JA, color_SA), alpha = 0.9),# Set colors 
+     edges = TRUE,  # Show edges of the circles
+     labels = list(font = 4), # Customize labels
+     quantities = TRUE,
+     main = "DA ASVs 16S") # Add a title
+
+dev.off()
+
+```
+
+
+
 ##iTOL
 ```{r pruning ps}
 
