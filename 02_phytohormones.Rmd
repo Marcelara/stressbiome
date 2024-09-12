@@ -87,16 +87,20 @@ library(vegan)
 # Setting up white background for plots
 theme_set(theme_bw())
 
-# Set colors
-color_JA <- rgb(0.9019607843137255, 0.6235294117647059, 0) #yellow-orange
-color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
-color_control <- rgb(0.6,0.6,0.6) #gray
-color_simulated <- rgb(0.8,0.2,0.6) #pink
-color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
-color_non_conditioned <-rgb(1,1,1,1)
+#Set colors
+color_stress <- c("#BFBFBF", "#E69F00", "#4472C4")
+color_experiment <- c("#CC3399", "#70AD47")
+
+color_ctrl_vs_JA <- c("#BFBFBF", "#E69F00")
+color_ctrl_vs_SA <- c("#BFBFBF",  "#4472C4")
+color_control <- "#BFBFBF"
+color_JA <- "#E69F00"
+color_SA <- "#4472C4"
+color_experiment <- c("#CC3399", "#70AD47")
+fonts <- windowsFonts()
 
 color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
-color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
+
 
 # Set default axis looks
 axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
@@ -866,5 +870,104 @@ table <- nice_table(pair_ppi_df, #Not working
 
 ```
 
+### Individual Barplots
+
+Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped by Experiment + colored in the upper boxes. For this, first I need to make a summary table df. 
+
+```{r}
+#summary stats 
+
+
+df_phyto <- feedback_long %>%
+  group_by(Experiment, phytohormone, soil_inocula, herbivory) %>%
+  summarise(
+    n = n(),
+    mean = mean(concentration, na.rm = TRUE),
+    sd = sd(concentration, na.rm = TRUE)) %>%
+    mutate(se = sd/sqrt(n))
+
+df_phyto
+
+```
+
+Now, let's plot it. I'd like to have a plot with those hormones with high concentrations and then a second plot with a smaller axis for those of low concentrations so differences can be better appreciated.
+
+```{r}
+
+big_axis <- c("ABA", "SA", "cis_OPDA", "JA", "OH_JA")
+small_axis <- c("sum_JA_Ile", "OH_JA_Ile","COOH_JA_Ile")
+
+
+# make a barplot for big-axis
+p1 <- ggplot(data = subset(feedback_long, phytohormone %in% big_axis),
+            mapping = aes(x = soil_inocula, y = concentration), fill= soil_inocula)+
+  geom_boxplot(aes(fill = soil_inocula))+
+  #geom_bar(aes(fill = soil_inocula), stat = "identity",
+   #        position = position_dodge(0.8), width = 0.8, color = "black")+
+  #geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = soil_inocula),
+  #              width = 0.2, position = position_dodge(0.8))+
+  geom_point(data = subset(feedback_long, phytohormone %in% big_axis),
+              mapping = (aes(soil_inocula, concentration, fill = soil_inocula)),
+               shape = 21, size = 1.1, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)
+
+p2 <- p1 + facet_wrap(phytohormone+herbivory~Experiment, ncol=6) +
+              labs(y="(ng/g DW)", x=" ") +
+              axis_looks +
+              theme(panel.spacing = unit(0.2, "lines"))+
+              theme(legend.position = "none")+
+              scale_x_discrete(labels=c("ABA" = "ABA", "SA" = "SA",
+                                      "cis_OPDA" = "cis-OPDA", "JA" = "JA", "OH_JA" = "OH-JA"))
+#save plot
+ggsave(
+  filename = "feed_phyto_big.svg",
+  plot = p2,
+  path = "./Plots/02_phytohormones",
+  scale = 1.5,
+  width = 1200,
+  height = 1800,
+  units = "px",
+  dpi = 300)
+
+
+# make a barplot for small-axis
+p1 <- ggplot(data = subset(df_phyto, phytohormone %in% small_axis),
+            mapping = aes(x = phytohormone, y = mean), fill= soil_inocula)+
+  geom_bar(aes(fill = soil_inocula), stat = "identity",
+           position = position_dodge(0.8), width = 0.8, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = soil_inocula),
+                width = 0.2, position = position_dodge(0.8))+
+  geom_point(data = subset(feedback_long, phytohormone %in% small_axis),
+              mapping = (aes(phytohormone, concentration, fill = soil_inocula)),
+               shape = 21, size = 1.1, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)
+
+p2 <- p1 + facet_wrap(herbivory~Experiment, ncol=2) +
+              labs(y="(ng/g DW)", x=" ") +
+              axis_looks +
+              theme(panel.spacing = unit(0.2, "lines"))+
+              theme(legend.position = "none")+
+              scale_x_discrete(labels=c("sum_JA_Ile" = "JA-Ile", "OH_JA_Ile" = "OH-JA-Ile",
+                                      "COOH_JA_Ile" = "COOH-JA-Ile"))
+#save plot
+ggsave(
+  filename = "feed_phyto_small.svg",
+  plot = p2,
+  path = "./Plots/02_phytohormones",
+  scale = 1.5,
+  width = 1200,
+  height = 1800,
+  units = "px",
+  dpi = 300)
+
+#clean
+rm(p1,p2)
+dev.off()
+
+```
+
+These two plots will be fused in one in illustrator
 
 
