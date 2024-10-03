@@ -71,7 +71,8 @@ library(car)
 library(effsize) #Cohen's D
 library(lsr)
 
-library(ropls) #PSLDA
+library(ropls) #PLS-DA
+library(mixOmics) #PLS-DA
 library(PERMANOVA)
 library(plsdepot)
 library(santaR)
@@ -208,7 +209,7 @@ Plotting quickly
 * Values look similar between experiments in the conditioning phase
 * There are slightly less replicates for SA
 
-### PLSDA
+### PLS-DA 
 
 Stands for Partial Least Squares Discriminant Analysis; a type of multivariate dimensionality reduction analysis. It can be thought as a "supervised" version of a PCA. The general approach is to analyze all phytohormones in a single analysis to check for patterns.  
 
@@ -224,26 +225,43 @@ str(conditioning)
 matrixdata<-conditioning[,11:18]# keep only values
 matrixdata <- as.matrix(matrixdata[,])# make it numeric
 metadata<-conditioning[,c("Experiment", "plant_pathway_induced")]
-metadata_number <- metadata %>% #change from characters to numbers
-                     mutate(Experiment = case_when(Experiment == 'simulated' ~ '1',
-                                            TRUE ~ '2')) %>%
-                     mutate(plant_pathway_induced = case_when(plant_pathway_induced == 'Control' ~ '1',
-                                                       plant_pathway_induced == 'JA' ~ '2',
-                                                       TRUE ~ '3'))
-MetaData <-data.matrix(metadata_number) #makes a numeric matrix
+metadata <- metadata %>% mutate(joined=paste(Experiment, plant_pathway_induced, sep="_"))
+metadata <- factor(metadata$joined)
 
-#PLS-DA
-plsda <-opls(matrixdata,MetaData)
-plsda_center <-opls(matrixdata,MetaData, scaleC = "center")
-plsda_pareto <-opls(matrixdata,MetaData, scaleC = "pareto")#removes the relative importance of large values
-                                                          #but keeps the data structure intact.
-#check
-plot(plsda_pareto)
-plsda_pareto@scoreMN
-plot(plsda_pareto,
-     typeVc = "x-score",
-     parAsColFcVn = MetaData[,"plant_pathway_induced"],
-     parLabVc = as.character(MetaData[,"plant_pathway_induced"]))
+#PLS-DA 
+plsda <-opls(matrixdata, metadata, scaleC = "pareto", permI = 100)
+#pareto removes the relative importance of large values
+#but keeps the data structure intact.
+
+#get summary
+plot(plsda, typeVc = "x-score", parCexN = 1.5)
+vip_scores <- getVipVn(plsda)
+
+#let's remove those with VIP < 0.75
+low_vip <- which(vip_scores < 0.75)
+filtered_matrixdata <- matrixdata[,-low_vip]
+
+#re-run PLSDA
+plsda_filt <-opls(filtered_matrixdata, metadata, scaleC = "pareto", permI = 100)
+plot(plsda_filt)
+
+#get scores
+scores<-plsda_filt@scoreMN
+scores_df<-as.data.frame(scores) #make new df 
+
+scores_df$p1 <- as.numeric(scores_df$p1)
+scores_df$p2 <- as.numeric(scores_df$p2)
+
+metadata<-conditioning[,c("Experiment", "plant_pathway_induced")]
+
+scores_df2 <- scores_df %>% #add info
+              mutate(Experiment = as.numeric(metadata$Experiment))%>%
+              mutate(plant_pathway_induced = as.numeric(metadata$plant_pathway_induced))
+
+```
+
+Old code 
+```{r}
 
 #split by factors
 plant_pathway_Factor <- MetaData[,"plant_pathway_induced"]
@@ -260,16 +278,19 @@ scores_df$p1 <- as.numeric(scores_df$p1)
 scores_df$p2 <- as.numeric(scores_df$p2)
 
 scores_df2 <- scores_df %>% #add info
-              mutate(Experiment = as.numeric(metadata$Experiment))%>%
-              mutate(plant_pathway_induced = as.numeric(metadata$plant_pathway_induced))
+              mutate(Experiment = metadata$Experiment)%>%
+              mutate(plant_pathway_induced = metadata$plant_pathway_induced)
               
+```
 
+
+```{r}
 #Plot the scores using ggplot2
 scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2, fill = factor(plant_pathway_induced),
                                   shape = factor(Experiment))) +
   geom_point(aes(colour=factor(plant_pathway_induced), fill=factor(plant_pathway_induced)),
               size = 4, alpha=0.8)+
-  labs(x = "t1(66%)", y = "t2(19%)",
+  labs(x = "t1(69%)", y = "t2(17%)",
        color="Plant pathway induced", shape="Experiment", fill=element_blank()) +
   scale_fill_manual(values =color_pathway_induced) +  #Customize color scheme for Treatment
   scale_color_manual(values =color_pathway_induced)
@@ -277,14 +298,14 @@ scoreplot<-ggplot(scores_df2, aes(x = p1, y = p2, fill = factor(plant_pathway_in
   axis_looks
 
 #now add loadings
-loadings<-plsda_pareto@loadingMN
+loadings<-plsda_filt@loadingMN
 loadings_df<-as.data.frame(loadings)
 
 loadings_df$p1 <- as.numeric(loadings_df$p1)
 loadings_df$p2 <- as.numeric(loadings_df$p2)
 
 #makes plot with arrows marking direction
-hormone_names <- c("SA","JA","ABA","JA-Ile","cis-OPDA","OH-JA","OH-JA-Ile","COOH-JA-Ile")
+hormone_names <- c("SA","JA","ABA","cis-OPDA","OH-JA")
 
 Biplot <-scoreplot+
          geom_hline(yintercept=0, linetype='dotted', col = 'gray20',linewidth = 0.2 )+
@@ -300,53 +321,21 @@ Biplot <-scoreplot+
         #xlim(-100,100)+
         axis_looks
          #theme(legend.position = "none")
+Biplot
 
 #save plot
+mapply(function(x)
 ggsave(
-  filename = "cond_phyto_PLSDA.svg",
-  plot = Biplot,
+  plot = last_plot(),
+  filename =x,
   path = "./Plots/02_phytohormones",
   scale = 1.5,
   width = 1200,
   height = 700,
   units = "px",
-  dpi = 300)
-
-
-#Let's also get the VIP scores 
-
-#extract VIP (Variable's importance) scores and CV-value
-VIPmatrixdataPLSDA<-getVipVn(plsda_pareto, orthoL = FALSE)
-
-VIP <- as.data.frame(VIPmatrixdataPLSDA)
-VIP <- VIP %>%
-        arrange(VIP)%>%
-        rename(VIP = VIPmatrixdataPLSDA)%>%
-        mutate(phytohormone=rownames(.))%>%
-        mutate(phytohormone)
-
-VIP$phytohormone <- as.factor(VIP$phytohormone)
-
-#plot it to have it next to the plot
-p_VIP <- VIP %>%
-         mutate(phytohormone=factor(phytohormone, levels=phytohormone)) %>%
-         ggplot(aes(x = phytohormone, y = VIP)) +
-         geom_point(size = 4) +
-         coord_flip()+
-         axis_looks+
-         labs(x = " ", y = "VIP score")
-
-#save plot
-ggsave(
-  filename = "cond_phyto_VIP-scores.svg",
-  plot = p_VIP,
-  path = "./Plots/02_phytohormones",
-  scale = 1.5,
-  width = 500,
-  height = 700,
-  units = "px",
-  dpi = 300)
-
+  dpi = 300),
+x=c("cond_phyto_PLSDA_filtered.svg",
+    "cond_phyto_PLSDA_filtered.png"))
 
 ```
 
