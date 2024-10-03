@@ -187,7 +187,7 @@ Plot indolic, aliphatic and total
 
 #first filter by those glucosinolates
 long_cond <- conditioning_long %>% filter(
-  glucosinolate %in% c("Glu_alyphatic","Glu_indolic","Glu_total")&
+  glucosinolate %in% c("Glu_alyphatic","Glu_indolic")&
     Phase == "conditioning")
 
 #Now make a summary df
@@ -212,6 +212,7 @@ ggplot(data = df_GLS_p,
               shape = 21, size = 1.5, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
   scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
   facet_wrap(~Experiment)
 
 #save plot
@@ -221,17 +222,56 @@ mapply(function(x)
   filename =x,
   path = "./Plots/03_glucosinolates",
   scale = 1.8,
-  width = 1200,
+  width = 1300,
   height = 600,
   units = "px",
   dpi = 300),
-x=c("cond_barplot_aliphatic_indolic_total.svg",
-    "cond_barplot_aliphatic_indolic_total.png"))
+x=c("cond_barplot_aliphatic_indolic.svg",
+    "cond_barplot_aliphatic_indolic.png"))
 
 ```
 
 * Values look similar between experiments in the conditioning phase
 * There are slightly less replicates for SA
+
+##Stats
+
+```{r}
+
+#Phyto
+phyto <- subset(long_cond, Experiment == "simulated")
+
+lm <- lm(log(concentration) ~ plant_pathway_induced*glucosinolate,
+         data=phyto)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T)
+emmeans <- emmeans(lm, ~plant_pathway_induced*glucosinolate)
+pair <- contrast(emmeans, method="pairwise", adjust="bonferroni")
+cld <- cld(emmeans, Letters="letters", adjust="tukey")
+
+
+#Insects
+#Phyto
+insects <- subset(long_cond, Experiment == "real_insects")
+
+lm <- lm(log(concentration) ~ plant_pathway_induced*glucosinolate,
+         data=insects)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T)
+emmeans <- emmeans(lm, ~plant_pathway_induced*glucosinolate)
+pair <- contrast(emmeans, method="pairwise", adjust="bonferroni")
+pair
+cld <- cld(emmeans, Letters="letters", adjust="tukey")
+cld
+
+```
+
+
+
+
+
 
 ### PLSDA
 
