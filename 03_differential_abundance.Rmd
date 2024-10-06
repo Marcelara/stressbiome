@@ -1018,8 +1018,8 @@ AF3.1@data$tip[AF3.1@data$tip == 0] <- NA
 #choose colors
 display.brewer.pal(n=8, name='RdBu') #see palette
 color_heatmap <- brewer.pal(n = 8, name = "RdBu") #get colors
-min <- color_heatmap[8]
-max <- color_heatmap[1]
+min <- color_heatmap[8] "#D6604D"
+max <- color_heatmap[1] "#4393C3"
 
 #select colors 
 AF3.1@specific_themes$heatmap$color$min <- min
@@ -1164,7 +1164,7 @@ ps_ITS_split
 #First, make a pre-filtering of those taxa that are low in prevalence (<20%)
 
 ps_ITS_filt <- lapply(ps_ITS_split, function(ps){
-  metagMisc::phyloseq_filter_prevalence(ps, prev.trh = 0.10, #at least 20% of samples
+  metagMisc::phyloseq_filter_prevalence(ps, prev.trh = 0.10, #at least 10% of samples
                                           abund.trh = NULL) #no filtering by abundance
 })
 
@@ -1402,8 +1402,6 @@ rm(venn_phyto, venn_insects, venn_EPG, euler, venn_df)
 To make my life easier I'll plot one per experiment and just run the same code 
 
 ###Phyto
-
-
 ```{r}
 
 #I need:
@@ -1929,19 +1927,19 @@ asvs <- unique(asvs) #58
 #make ps with DA asvs
 ps_DA <- prune_taxa(asvs, ps_ITS) #58 taxa, ok!
 ITS_tree <- ps_DA@phy_tree
-plot(ITS_tree)
-ITS_tree$tip.label
+#plot(ITS_tree)
+#ITS_tree$tip.label
 
 #save it
-ape::write.tree(ITS_tree, "./Results/03_differential_abundance/ITS_iTOL/ITS_DA_tree.tre")
+#ape::write.tree(ITS_tree, "./Results/03_differential_abundance/ITS_iTOL/ITS_DA_tree.tre")
 
 #Now, let's get the sequences to make a new tree as the default one with DADA2 is not great
 #get the sequences and save them as FASTA format
-ps_DA %>%
-refseq() %>%
-Biostrings::writeXStringSet("./Results/03_differential_abundance/ITS_iTOL/selected_asvs.fna",
-             append=FALSE,compress=FALSE,
-             compression_level=NA, format="fasta")
+#ps_DA %>%
+#refseq() %>%
+#Biostrings::writeXStringSet("./Results/03_differential_abundance/ITS_iTOL/selected_asvs.fna",
+#             append=FALSE,compress=FALSE,
+#             compression_level=NA, format="fasta")
 
 #Run alignment in MAFFT, remove noisy columns with Guidance2
 #and then use this as an input for IQTREE in the webserver.
@@ -1967,7 +1965,7 @@ ps_DA@phy_tree
 ps_DA_tree@phy_tree  
 
 #save it
-ape::write.tree(new_tree, "./Results/03_differential_abundance/ITS_iTOL/ITSS_DA_tree_IQTREE_rooted.tre")
+#ape::write.tree(new_tree, "./Results/03_differential_abundance/ITS_iTOL/ITSS_DA_tree_IQTREE_rooted.tre")
 
 #call it again
 ps_DA <- ps_DA_tree
@@ -2069,8 +2067,8 @@ df_complete2 <- left_join(df_complete, tax_table)
 
 #Now this df is complete (for now)
 #save it
-saveRDS(df_complete2, file="./Data_frames/03_differential_abundance/df_complete_ITS.Rdata")
-write.csv(df_complete2, file="./Data_frames/03_differential_abundance/df_complete_ITS.csv")
+#saveRDS(df_complete2, file="./Data_frames/03_differential_abundance/df_complete_ITS.Rdata")
+#write.csv(df_complete2, file="./Data_frames/03_differential_abundance/df_complete_ITS.csv")
 
 ```
 
@@ -2122,7 +2120,7 @@ AF1@common_themes$legend$horizontal <- 0
 AF1@common_themes$legend$labels <- c("Herbivore-induced","Phytohormone-induced")
 
 #save
-itol.toolkit::write_unit(AF1, "./Results/03_differential_abundance/ITS_iTOL") 
+#itol.toolkit::write_unit(AF1, "./Results/03_differential_abundance/ITS_iTOL") 
 ```
 
 Treatment
@@ -2155,7 +2153,7 @@ AF2.1 <- itol.toolkit::create_unit(data = Phyto,
 AF2.1@field$labels <- c("JA_phyto",  "SA_phyto")
 AF2.1@field$colors <- c("#E69F00",  "#4472C4")
 
-itol.toolkit::write_unit(AF2.1, "./Results/03_differential_abundance/ITS_iTOL")
+#itol.toolkit::write_unit(AF2.1, "./Results/03_differential_abundance/ITS_iTOL")
 
 #Insects
 insects <- df_Treatment2 %>% dplyr::select(id, DA_JA_insects, DA_SA_insects)
@@ -2167,7 +2165,7 @@ AF2.2 <- itol.toolkit::create_unit(data = insects,
 AF2.2@field$labels <- c("JA_insects",  "SA_insects")
 AF2.2@field$colors <- c("#E69F00",  "#4472C4")
 
-itol.toolkit::write_unit(AF2.2, "./Results/03_differential_abundance/ITS_iTOL")
+#itol.toolkit::write_unit(AF2.2, "./Results/03_differential_abundance/ITS_iTOL")
 
 ```
 
@@ -2227,7 +2225,7 @@ AF3.1@specific_themes$heatmap$value$mid <- 0
 
 AF3.1@specific_themes$heatmap$tree$tree_display <- 0 #no display of tree in heatmap
 
-itol.toolkit::write_unit(AF3.1, "./Results/03_differential_abundance/ITS_iTOL") #works
+#itol.toolkit::write_unit(AF3.1, "./Results/03_differential_abundance/ITS_iTOL") #works
 
 #By experiment
 Insects <-  df_LFC_unique %>% dplyr::select(id, lfc_JA_insects, lfc_SA_insects)
@@ -2254,11 +2252,40 @@ AF3.2@specific_themes$heatmap$value$mid <- 0
 
 AF3.2@specific_themes$heatmap$tree$tree_display <- 0 #no display of tree in heatmap
 
-itol.toolkit::write_unit(AF3.2, "./Results/03_differential_abundance/ITS_iTOL") #works
+#itol.toolkit::write_unit(AF3.2, "./Results/03_differential_abundance/ITS_iTOL") #works
 
 ```
 
-Now I need to add the taxonomy and change the labels
+Now I need to add the taxonomy and change the labels, but first let's check if there are unasigned at phylum levels
+
+```{r taxonomy_check}
+
+
+tax <- as.data.frame(tax_table(ps_DA))
+which(is.na(tax$Phylum)) #2 ASVs are NA at Phylum level
+
+Phylum_NA <- rownames(tax)[which(is.na(tax$Phylum))] #get which ones 
+
+#Now, let's get the sequences
+ps_phylum_NA <- subset_taxa(ps_DA, ASV %in% Phylum_NA) #ok
+
+#save sequences of those 2 ASVs to blast them in NCBI 
+ps_phylum_NA  %>%
+refseq() %>%
+Biostrings::writeXStringSet("./Results/03_differential_abundance/ITS_phylum_NA_sel.fna",
+             append=FALSE,compress=FALSE,
+             compression_level=NA, format="fasta")
+
+#fASV_238: More hits in Glomeromycetes; phylum Glomeromycota
+#fASV_221: All of the hits in Ascomycete fungi; phylum Ascomycota
+
+#now, replace in tax table
+tax_table(ps_DA)[1,2] <- "Glomeromycota"
+tax_table(ps_DA)[12,2] <- "Ascomycota"
+
+#ready
+```
+
 
 ```{r Taxonomy}
 
@@ -2272,19 +2299,25 @@ AF4 <- create_unit(data = df_labels_F,
                        type = "LABELS",
                        tree = ITS_tree)
 
-itol.toolkit::write_unit(AF4, "./Results/03_differential_abundance/ITS_iTOL")
+#itol.toolkit::write_unit(AF4, "./Results/03_differential_abundance/ITS_iTOL")
 
 #Genus
 df_labels_G <- df_complete2 %>%
                dplyr::select(id, Genus)
 
 #replace Genus names with names of ASV and add number to Genus so its clear that it's different ASVs
+library(stringr)
 df_labels_G <- df_labels_G %>% mutate(number=str_split_i(df_labels_G$id, "_", 2))%>% #get number of ASV
                                 mutate(Genus=paste(.$Genus, .$number, sep= "-"))%>% #make new with number and genus
                                 mutate(Genus=gsub("NA", "fASV", .$Genus))%>%
                                 dplyr::select(-number) #ok
-                                      
-AF5 <- create_unit(data = df_labels_G,
+
+#finally replace `gen_Incertae_sedis` by an asterisk so it's less space. will be added to the legend.
+df_labels_G2 <- df_labels_G %>% 
+               mutate(Genus = str_replace_all(Genus, "_gen_Incertae_sedis", "*"))
+
+#make the df for iTOL
+AF5 <- create_unit(data = df_labels_G2,
                        key = "AF5_label_Genus",
                        type = "LABELS",
                        tree = ITS_tree)
@@ -2293,18 +2326,21 @@ itol.toolkit::write_unit(AF5, "./Results/03_differential_abundance/ITS_iTOL")
 
 
 #Make a range df for Phylum now
+
+#For this I need to use the updated tax table
+tax_table <- as.data.frame(ps_DA@tax_table[,c(1:7,12)]) #select the interesting ones 
+tax_table$id <- rownames(tax_table) #add id column for join 
+
+#merge again
+df_complete2 <- left_join(df_complete, tax_table)
+
+#Now select only Phylum 
 df_Phylum <- df_complete2 %>%
                dplyr::select(id, Phylum)
 
-df_Phylum$Phylum <- df_Phylum$Phylum %>% replace_na('Unasigned')
-
 #make a vector with colors 
 Phylum <- unique(df_Phylum$Phylum) #5
-#colourCount <- 5
-#getPalette <- colorRampPalette(brewer.pal(colourCount, "Pastel1"))
-#color_phylum <- getPalette(colourCount)
-#color_phylum <- c("#FBB4AE", "#B3CDE3", "#CCEBC5", "#DECBE4", "#FED9A6")
-color_phylum <- c("#FDB462","#BC80BD","#FFFFB3", "#FB8072","#80B1D3")
+color_phylum <- c("#fed9a6", "#decbe4", "#ccebc5", "#fbb4ae", "#b3cde3")
 
 #make it a df
 df_phyla_col <- data.frame(Phylum, color_phylum)
@@ -2320,6 +2356,7 @@ AF6 <- create_unit(data = df_Phylum,
                       tree = ITS_tree)
 
 itol.toolkit::write_unit(AF6, "./Results/03_differential_abundance/ITS_iTOL")
+
 ```
 
 
@@ -2334,8 +2371,8 @@ AF7 <- itol.toolkit::create_unit(data = df_trophic,
                          type = "DATASET_SYMBOL",
                          tree = ITS_tree)
 
-AF7@data$tip$`AF10_Trophic_mode$POSITION`<- 1
-AF7@data$tip$`AF7_Trophic_mode$SYMBOL` <- 4
+AF7@data$tip$`AF7_Trophic_mode$POSITION`<- 1
+AF7@data$tip$`AF7_Trophic_mode$SYMBOL` <- 2
 
 
 itol.toolkit::write_unit(AF7, "./Results/03_differential_abundance/ITS_iTOL")
