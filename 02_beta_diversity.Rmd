@@ -61,6 +61,18 @@ library(ggpubr)
 #Set plots theme
 ggplot2::theme_set(theme_bw())
 
+# Set default axis looks
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
+                                               face = "bold", angle=0, hjust=0.5))+ #text in X
+  theme(axis.text.y = element_text(colour = "black", size = 9, face = "bold"))+ #text in y
+  theme(axis.title=element_text(size=11, face = "bold"))+ #all texts
+  theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)))+
+  theme(panel.grid.major = element_blank(), #no grid
+        panel.grid.minor = element_blank()) #no grid
+  #theme(legend.position="none")+ #no legend
+
+
+
 #Set colors
 color_stress <- c("#BFBFBF", "#E69F00", "#4472C4")
 color_experiment <- c("#CC3399", "#70AD47")
@@ -180,13 +192,12 @@ bray_full <- phyloseq::distance(ps_ITS_css, "bray")
 uni_full <- phyloseq::distance(ps_ITS_css, "unifrac")
 
 
-#calculate distance matrix, using 4 different indexes
-
+#calculate distance matrix by experiment 
 #Bray-Curtis
-bray <- lapply(ITS_CSS, function(ps){ distance(ps, "bray")})
+bray <- lapply(ITS_CSS, function(ps){ phyloseq::distance(ps, "bray")})
 
 #Unifrac
-uni <- lapply(ITS_CSS, function(ps){ distance(ps, "unifrac")})
+uni <- lapply(ITS_CSS, function(ps){ phyloseq::distance(ps, "unifrac")})
 
 ```
 
@@ -208,6 +219,7 @@ df_info_ITS <- sample_data(ps_ITS) %>%
 get_UMAP_coordenates <- function(x){
   
   #dist is a list of distances previously calculated
+  set.seed(123)
   umap <- umap(as.matrix(x))
   umap_scores <- as.data.frame(umap$layout)
   colnames(umap_scores) <- c("UMAP1", "UMAP2")
@@ -231,21 +243,26 @@ df_UMAP <- lapply(df_UMAP, function(df){
 plot_UMAP <- function(x,title){
   #x is df 
   #title is the name of the title in between ""
-  
+  set.seed(123)
   p <- ggplot(x, aes(x=UMAP1,y=UMAP2, color=plant_pathway_induced)) +
-  geom_point(aes(color=plant_pathway_induced, shape=Experiment), size=4)+ # individual sample values
+  geom_point(aes(color=plant_pathway_induced, shape=Experiment),
+             size=4, alpha=0.85)+ # individual sample values
   #coord_fixed()+ # same axis scaling
   scale_color_manual(values=color_stress)+
-  ggtitle(title)
+  #ggtitle(title)+
+  axis_looks+
+  theme(legend.position="none")
   return(p)
 }
 
 #Plot it
-u.Bray <- plot_UMAP(df_UMAP$bray, "Bray")
+#u.Bray <- plot_UMAP(df_UMAP$bray, "Bray")
 u.uni <- plot_UMAP(df_UMAP$uni, "Unifrac")
 
+u.uni + ylim(-3,3.5)
+
 #Make it a single figure 
-ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
+#ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
 
 #save plot
 mapply(function(x)
@@ -253,15 +270,14 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/02_beta_diversity",
-  scale = 2,
-  width = 1500,
-  height = 800,
+  scale = 1.5,
+  width = 800,
+  height = 750,
   units = "px",
   dpi = 300),
 x=c("UMAP_Phyto-Insects_ITS.svg","UMAP_Phyto-Insects_ITS.png"))
 
 ```
-
 
 
 ###Phyto
@@ -278,7 +294,9 @@ get_NMDS_coordenates <- function(x,y){
   #x is a phyloseq
   #y is a list of distances
   
+  
   df_nmds <- lapply(y, function(dist){
+    set.seed(123)
     ord <- ordinate(x, "NMDS", distance=dist)
     nMDS <- plot_ordination(x, ord, color="plant_pathway_induced")
     df_NMDS <- nMDS$data
@@ -315,6 +333,8 @@ plot_NMDS <- function(x,y,z,title){
   #y is the centroid df
   #z is segment df
   #title is the name of the title in between ""
+  
+  color_stress <- c("#BFBFBF", "#E69F00", "#4472C4")
   
   p <- ggplot(x, aes(x=NMDS1,y=NMDS2, color=plant_pathway_induced)) +
   geom_segment(data = z,
@@ -356,6 +376,9 @@ Now, do the same but with UMAP
 
 ```{r}
 
+phyto <- ITS_CSS$cond_phytohormones
+dist <- list(bray=bray$cond_phytohormones,uni=uni$cond_phytohormones)
+
 #First get a short version of sample data df 
 df_info_ITS <- sample_data(ps_ITS) %>% 
                data.frame() %>% 
@@ -367,6 +390,7 @@ df_info_ITS <- sample_data(ps_ITS) %>%
 get_UMAP_coordenates <- function(x){
   
   #dist is a list of distances previously calculated
+  set.seed(123)
   umap <- umap(as.matrix(x))
   umap_scores <- as.data.frame(umap$layout)
   colnames(umap_scores) <- c("UMAP1", "UMAP2")
@@ -410,20 +434,22 @@ plot_UMAP <- function(x,y,z,title){
                mapping = aes(x=UMAP1, y=UMAP2, 
                              xend = UMAP1_centroid, yend = UMAP2_centroid),
                linewidth=0.3) + 
-  geom_point(size=0.9)+ # individual sample values
-  geom_point(data = y, size = 5, alpha=0.9) + # centroids
+  geom_point(size=1.5)+ # individual sample values
+  geom_point(data = y, size = 6, alpha=0.9) + # centroids
   #coord_fixed()+ # same axis scaling
   scale_color_manual(values=color_stress)+
-  ggtitle(title)
+    #ggtitle(title)+
+  axis_looks+
+  theme(legend.position="none")
   return(p)
 }
 
 #Plot it
-u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
+#u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
 u.uni <- plot_UMAP(df_UMAP$uni, centroids_UMAP$uni, segments_UMAP$uni, "Unifrac")
 
 #Make it a single figure 
-ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE,legend="bottom")
+#ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE,legend="bottom")
 
 #save plot
 mapply(function(x)
@@ -431,9 +457,9 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/02_beta_diversity",
-  scale = 1.8,
-  width = 1000,
-  height = 600,
+  scale = 1.5,
+  width = 780,
+  height = 750,
   units = "px",
   dpi = 300),
 x=c("UMAP_phyto_ITS.svg","UMAP_phyto_ITS.png"))
@@ -482,9 +508,9 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/02_beta_diversity",
-  scale = 1.8,
-  width = 1000,
-  height = 600,
+  scale = 1.5,
+  width = 780,
+  height = 750,
   units = "px",
   dpi = 300),
 x=c("NMDS_insects_ITS.svg","NMDS_insects_ITS.png"))
@@ -518,11 +544,11 @@ segments_UMAP <- list(bray=s.bray, uni=s.uni)
 rm(s.bray,  s.uni)#clean
 
 #Now, plot the UMAP
-u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
+#u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
 u.uni <- plot_UMAP(df_UMAP$uni, centroids_UMAP$uni, segments_UMAP$uni, "Unifrac")
 
 #Make it a single figure 
-ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE,legend="bottom")
+#ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE,legend="bottom")
 
 #save plot
 mapply(function(x)
@@ -530,9 +556,9 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/02_beta_diversity",
-  scale = 1.8,
-  width = 1000,
-  height = 600,
+  scale = 1.5,
+  width = 780,
+  height = 750,
   units = "px",
   dpi = 300),
 x=c("UMAP_insects_ITS.svg","UMAP_insects_ITS.png"))
@@ -567,17 +593,17 @@ df_info_ITS
 #Is there a difference between the fungal communities among types of induction(Experiment) and treatments?
 set.seed(123)
 
-perm_full_bray <- adonis2(formula=distance(ps_ITS_css, "bray") 
-                          ~ Experiment +plant_pathway_induced + libsize_after_filtering,
+perm_full_bray <- adonis2(formula=phyloseq::distance(ps_ITS_css, "bray") 
+                          ~ Experiment +plant_pathway_induced,
                      data=as(sample_data(ps_ITS_css), "data.frame"),
                      permutations = 999, by="margin") #yes
 
-perm_full_uni <- adonis2(formula=distance(ps_ITS_css, "unifrac") 
-                          ~ Experiment +plant_pathway_induced + libsize_after_filtering,
+perm_full_uni <- adonis2(formula=phyloseq::distance(ps_ITS_css, "unifrac") 
+                          ~ Experiment + plant_pathway_induced,
                      data=as(sample_data(ps_ITS_css), "data.frame"),
                      permutations = 999, by="margin") #yes
 
-#which treatments are different from each other?
+#which treatments are different from each other? --> not working 13/09
 pairwise_bray <- adonis.pair(dist.mat= distance(ps_ITS_css, "bray"),
                  Factor = as.factor(as(sample_data(ps_ITS_css), "data.frame")$plant_pathway_induced),
                  nper=1000,corr.method="fdr")#Ctrl vs JA
@@ -587,6 +613,7 @@ pairwise_uni <- adonis.pair(dist.mat= distance(ps_ITS_css, "unifrac"),
                  nper=1000,corr.method="fdr")#Ctrl vs JA
 
 ```
+
 Save results
 ```{r}
 
@@ -602,8 +629,15 @@ permanova_full <- rbind(perm_full_bray, perm_full_uni)
 #save it
 table <- nice_table(permanova_full ,
               title = c("Table X. PERMANOVA for the full ITS community"))
-flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/full_permanova_ITS.docx")
 
+flextable::save_as_docx(table,
+                        path = "./Tables/02_beta_diversity/full_permanova_ITS_BothExperiments.docx.docx")
+
+```
+
+
+```{r}
+#Pairwise comparisons --> not working 
 #make it into a df
 pairwise_bray$distance <- "Bray-Curtis"
 pairwise_bray <- pairwise_bray %>% relocate(distance)
@@ -627,13 +661,15 @@ ITS_CSS
 bray
 uni
 
+ITS_CSS <- ITS_CSS[-3] #remove EPG for now 
+
 #Is there a difference between the fungal communities among treatments?
 set.seed(123)
 
 #Bray-Curtis
 perm_Byexp_bray <- lapply(ITS_CSS, function(ps){
           set.seed(123)
-          perm <- adonis2(formula=distance(ps, "bray") 
+          perm <- adonis2(formula=phyloseq::distance(ps, "bray") 
                           ~ plant_pathway_induced,
                      data=as(sample_data(ps), "data.frame"),
                      permutations = 999, by="margin")
@@ -641,13 +677,14 @@ perm_Byexp_bray <- lapply(ITS_CSS, function(ps){
           return(perm)
           })
 
+
 perm_Byexp_bray <- map_df(perm_Byexp_bray, ~as.data.frame(.x), .id="Experiment") 
 perm_Byexp_bray <- perm_Byexp_bray %>% mutate(distance="Bray-Curtis") %>% relocate(distance)
 
 #Unifrac
 perm_Byexp_uni <- lapply(ITS_CSS, function(ps){
           set.seed(123)
-          perm <- adonis2(formula=distance(ps, "unifrac") 
+          perm <- adonis2(formula=phyloseq::distance(ps, "unifrac") 
                           ~ plant_pathway_induced,
                      data=as(sample_data(ps), "data.frame"),
                      permutations = 999, by="margin")
@@ -664,11 +701,16 @@ permanova_Byexp <- rbind(perm_Byexp_bray, perm_Byexp_uni)
 #save it
 table <- nice_table(permanova_Byexp,
               title = c("Table X. PERMANOVA test by Experiment for the ITS community"))
-flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/permanova_ITS.docx")
+
+#flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/permanova_ByExperiment_ITS.docx")
 
 #save df just in case 
 write.table(permanova_Byexp, "./Data_frames/02_beta_diversity/permanova_byexperiment_ITS.tsv", quote = F, row.names = F, sep = "\t")
 
+```
+
+
+```{r}
 #Now, get pairwise differences but just for phytohormone experiment
 #which treatments are different from each other?
 pairwise_bray <- adonis.pair(dist.mat= distance(ITS_CSS$cond_phytohormones, "bray"),
@@ -888,6 +930,7 @@ df_info_16S <- sample_data(ps_16S) %>%
 get_UMAP_coordenates <- function(x){
   
   #dist is a list of distances previously calculated
+  set.seed(123)
   umap <- umap(as.matrix(x))
   umap_scores <- as.data.frame(umap$layout)
   colnames(umap_scores) <- c("UMAP1", "UMAP2")
@@ -908,24 +951,28 @@ df_UMAP <- lapply(df_UMAP, function(df){
 
 
 #call function
-plot_UMAP <- function(x,title){
+plot_UMAP <- function(x){
   #x is df 
   #title is the name of the title in between ""
-  
+  set.seed(123)
   p <- ggplot(x, aes(x=UMAP1,y=UMAP2, color=plant_pathway_induced)) +
-  geom_point(aes(color=plant_pathway_induced, shape=Experiment), size=4)+ # individual sample values
+  geom_point(aes(color=plant_pathway_induced, shape=Experiment),
+             size=4, alpha=0.85)+ # individual sample values
   #coord_fixed()+ # same axis scaling
   scale_color_manual(values=color_stress)+
-  ggtitle(title)
+  #ggtitle(title)+
+  axis_looks+
+  theme(legend.position="none")
+  
   return(p)
 }
 
 #Plot it
-u.Bray <- plot_UMAP(df_UMAP$bray, "Bray")
-u.uni <- plot_UMAP(df_UMAP$uni, "Unifrac")
+#u.Bray <- plot_UMAP(df_UMAP$bray, "Bray")
+u.uni <- plot_UMAP(df_UMAP$uni)
 
 #Make it a single figure 
-ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
+#ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
 
 #save plot
 mapply(function(x)
@@ -933,9 +980,9 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/02_beta_diversity",
-  scale = 2,
-  width = 1500,
-  height = 800,
+  scale = 1.5,
+  width = 800,
+  height = 750,
   units = "px",
   dpi = 300),
 x=c("UMAP_Phyto-Insects_16S.svg","UMAP_Phyto-Insects_16S.png"))
@@ -951,6 +998,27 @@ phyto <- Bac_CSS$cond_phytohormones
 dist <- list(bray=bray$cond_phytohormones, uni=uni$cond_phytohormones)
 
 #NMDS
+
+#call function
+get_NMDS_coordenates <- function(x,y){
+  
+  #x is a phyloseq
+  #y is a list of distances
+  
+  df_nmds <- lapply(y, function(dist){
+    ord <- ordinate(x, "NMDS", distance=dist)
+    nMDS <- plot_ordination(x, ord, color="plant_pathway_induced")
+    df_NMDS <- nMDS$data
+    df_NMDS <- df_NMDS %>% dplyr::select(Experiment, plant_pathway_induced, NMDS1, NMDS2)
+    df_NMDS$sample_name <- rownames(df_NMDS)
+    df_NMDS <- df_NMDS %>% relocate(sample_name)
+    return(df_NMDS)
+    })
+
+  #ord will be a list 
+  return(df_nmds)
+}
+
 #Get coordenates 
 df_NMDS <- get_NMDS_coordenates(phyto,dist)
 
@@ -968,6 +1036,24 @@ segments <- list(bray=s.bray, uni=s.uni)
 rm(s.bray, s.uni)#clean
 
 #Now, plot the NMDS
+plot_NMDS <- function(x,y,z,title){
+  #x is df 
+  #y is the centroid df
+  #z is segment df
+  #title is the name of the title in between ""
+  
+  p <- ggplot(x, aes(x=NMDS1,y=NMDS2, color=plant_pathway_induced)) +
+  geom_segment(data = z,
+               mapping = aes(x=NMDS1, y=NMDS2, 
+                             xend = NMDS1_centroid, yend = NMDS2_centroid),
+               linewidth=0.3) + # spiders
+  geom_point(size=0.9)+ # individual sample values
+  geom_point(data = y, size = 5, alpha=0.9) + # centroids
+  #coord_fixed()+ # same axis scaling
+  scale_color_manual(values=color_stress)+
+  ggtitle(title)
+  return(p)
+}
 
 #Plot it
 p.Bray <- plot_NMDS(df_NMDS$bray, centroids$bray, segments$bray, "Bray")
@@ -1035,20 +1121,22 @@ plot_UMAP <- function(x,y,z,title){
                mapping = aes(x=UMAP1, y=UMAP2, 
                              xend = UMAP1_centroid, yend = UMAP2_centroid),
                linewidth=0.3) + 
-  geom_point(size=0.9)+ # individual sample values
-  geom_point(data = y, size = 5, alpha=0.9) + # centroids
+  geom_point(size=1.5)+ # individual sample values
+  geom_point(data = y, size = 6, alpha=0.9) + # centroids
   #coord_fixed()+ # same axis scaling
   scale_color_manual(values=color_stress)+
-  ggtitle(title)
+    #ggtitle(title)+
+  axis_looks+
+  theme(legend.position="none")
   return(p)
 }
 
 #Plot it
-u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
+#u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
 u.uni <- plot_UMAP(df_UMAP$uni, centroids_UMAP$uni, segments_UMAP$uni, "Unifrac")
 
 #Make it a single figure 
-ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
+#ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE, legend="bottom")
 
 #save plot
 mapply(function(x)
@@ -1056,9 +1144,9 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/02_beta_diversity",
-  scale = 1.8,
-  width = 1000,
-  height = 600,
+  scale = 1.5,
+  width = 780,
+  height = 750,
   units = "px",
   dpi = 300),
 x=c("UMAP_phyto_16S.svg","UMAP_phyto_16S.png"))
@@ -1143,11 +1231,11 @@ segments_UMAP <- list(bray=s.bray, uni=s.uni)
 rm(s.bray, s.uni)#clean
 
 #Now, plot the UMAP
-u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
+#u.Bray <- plot_UMAP(df_UMAP$bray, centroids_UMAP$bray, segments_UMAP$bray, "Bray")
 u.uni <- plot_UMAP(df_UMAP$uni, centroids_UMAP$uni, segments_UMAP$uni, "Unifrac")
 
 #Make it a single figure 
-ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE,legend="bottom")
+#ggarrange(u.Bray,u.uni, ncol=2, nrow=1,common.legend = TRUE,legend="bottom")
 
 #save plot
 mapply(function(x)
@@ -1155,9 +1243,9 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/02_beta_diversity",
-  scale = 1.8,
-  width = 1000,
-  height = 600,
+  scale = 1.5,
+  width = 780,
+  height = 750,
   units = "px",
   dpi = 300),
 x=c("UMAP_insects_16S.svg","UMAP_insects_16S.png"))
@@ -1186,7 +1274,6 @@ rm(centroids, centroids_UMAP, segments, segments_UMAP, df_UMAP, df_NMDS)#df's
 
 ```
 
-
 ##PERMANOVA
 ```{r}
 
@@ -1201,9 +1288,9 @@ perm_full_bray <- adonis2(formula=distance(ps_Bac_css, "bray")
                           ~ Experiment + plant_pathway_induced,
                      data=as(sample_data(ps_Bac_css), "data.frame"),
                      permutations = 999, by="margin") #no
-
+set.seed(234)
 perm_full_uni <- adonis2(formula=distance(ps_Bac_css, "unifrac") 
-                          ~ Experiment +plant_pathway_induced,
+                          ~ Experiment + plant_pathway_induced,
                      data=as(sample_data(ps_Bac_css), "data.frame"),
                      permutations = 999, by="margin") #no, but barely
 
@@ -1222,9 +1309,14 @@ perm_full_uni <- perm_full_uni %>% rownames_to_column(var="factor") %>% relocate
 
 permanova_full <- rbind(perm_full_bray, perm_full_uni)
 
+permanova_full <- permanova_full %>% mutate(across(where(is.numeric), ~ round(., 3)))
+
+
 #save it
-table <- nice_table(permanova_full ,
-              title = c("Table X. PERMANOVA for the full 16S community"))
+table <- nice_table(permanova_full,
+                    highlight=TRUE,
+                    title = c("Table X. PERMANOVA for the full 16S community"))
+
 flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/full_permanova_16S_BothExperiments.docx")
 
 ```
@@ -1273,11 +1365,21 @@ permanova_Byexp <- rbind(perm_Byexp_bray, perm_Byexp_uni)
 #save it
 table <- nice_table(permanova_Byexp,
               title = c("Table X. PERMANOVA test by Experiment for the 16S community"))
-flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/permanova_ITS.docx")
+#flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/permanova_ByExperiment_16S.docx")
 
 #save df just in case 
 write.table(permanova_Byexp, "./Data_frames/02_beta_diversity/permanova_byexperiment_16S.tsv", quote = F, row.names = F, sep = "\t")
+```
 
+```{r}
+#save R enviroment
+save.image(file="./R_Environments/02_beta_diversity/16S.Rdata")
+
+```
+
+
+
+```{r}
 #Now, get pairwise differences but just for insects experiment, unifrac
 #which treatments are different from each other?
 pairwise_bray <- adonis.pair(dist.mat= phyloseq::distance(Bac_CSS$cond_real_insects, "bray"),
