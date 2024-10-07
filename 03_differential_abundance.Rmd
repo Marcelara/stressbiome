@@ -2377,7 +2377,19 @@ AF7@data$tip$`AF7_Trophic_mode$SYMBOL` <- 2
 
 itol.toolkit::write_unit(AF7, "./Results/03_differential_abundance/ITS_iTOL")
 
+
+#colors: "#2ca02c", "#66c2a5", "#5ab4ac", "#fdae61", "#f46d43", "#d73027"
+
 ```
+
+Save it for later
+```{r}
+
+save.image("./R_environments/03_differential_abundance/ITS_iTOL.Rdata")
+
+```
+
+
 
 
 ## Raw abundances
