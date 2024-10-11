@@ -20,22 +20,6 @@ This script will deal with ploting and analyzing the concentration of X differen
 
 # General settings 
 
-## Rmarkdown
-
-```{r global settings, include=FALSE}
-
-#Set global options for r chunks
-knitr::opts_chunk$set(
-  echo = TRUE,#show code
-  fig.width = 9,
-  fig.height = 6,
-  dpi = 300,
-  error=TRUE, #keep knitting even if error appears
-  message=FALSE, #don't show messages
-  warning=FALSE, #don't show warnings
-  collapse=FALSE)
-
-```
 
 ## Loading packages
 
@@ -52,49 +36,20 @@ library(tibble)
 
 #plotting
 library(ggplot2)
-library(ggpubr)
-library(GGally)
-library(RColorBrewer)
-library(grDevices)
+library(patchwork)
 library(rempsyc) #tables
 
 #stats
-library(DHARMa)
-library(lmtest)
-library(fitdistrplus)
-library(AICcmodavg)
-library(emmeans)
-library(multcompView)
-library(multcomp)
-library(postHoc)
-library(car)
-library(effsize) #Cohen's D
-library(lsr)
-
-library(ropls) #PSLDA
-library(PERMANOVA)
-library(plsdepot)
-library(santaR)
-library(vegan)
-
-#check later
-library(ggplot2)
-library(DHARMa)
-library(lmtest)
-library(fitdistrplus)
-library(AICcmodavg)
-library(emmeans)
-library(multcompView)
-library(multcomp)
-library(postHoc)
-library(car)
-library(ggpubr)
-library(jtools)
-library(DescTools)
 library(lme4)
-library(bbmle)
-library(nlme)
-
+library(DHARMa)
+library(lmtest)
+library(fitdistrplus)
+library(AICcmodavg)
+library(emmeans)
+library(multcompView)
+library(multcomp)
+library(postHoc)
+library(car)
 
 ```
 
@@ -105,16 +60,19 @@ library(nlme)
 # Setting up white background for plots
 theme_set(theme_bw())
 
-# Set colors
-color_JA <- rgb(0.9019607843137255, 0.6235294117647059, 0) #yellow-orange
-color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
-color_control <- rgb(0.6,0.6,0.6) #gray
-color_simulated <- rgb(0.8,0.2,0.6) #pink
-color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
-color_non-conditioned <-rgb(1,1,1,1)
+#Set colors
+color_stress <- c("#BFBFBF", "#E69F00", "#4472C4")
+color_experiment <- c("#CC3399", "#70AD47")
+
+color_ctrl_vs_JA <- c("#BFBFBF", "#E69F00")
+color_ctrl_vs_SA <- c("#BFBFBF",  "#4472C4")
+color_control <- "#BFBFBF"
+color_JA <- "#E69F00"
+color_SA <- "#4472C4"
+color_experiment <- c("#CC3399", "#70AD47")
+fonts <- windowsFonts()
 
 color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
-color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
 
 # Set default axis looks
 axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
@@ -125,6 +83,7 @@ axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
   theme(panel.grid.major = element_blank(), #no grid
         panel.grid.minor = element_blank()) #no grid
   #theme(legend.position="none")+ #no legend
+
 
 #Get names for boxes in facet wrap
 Experiment_names <- c(
@@ -158,7 +117,7 @@ caterpillars <-  caterpillars %>%
                    subset(soil_inocula != "non-conditioned")%>%
                    subset(caterpillar_number != 0)%>% #removed 3 plants with 0 caterpillars 
                    droplevels()
-str(cat_long)
+
 
 #make it long
 #making it long 
@@ -168,73 +127,113 @@ cat_long <- caterpillars %>%
                values_to = "weight",
                values_drop_na = TRUE)
 
+#make summary
+cat_summary <- cat_long %>% 
+            group_by(Experiment, soil_inocula, ID) %>%
+  summarise(
+    n = n(),
+    mean = mean(weight, na.rm = TRUE),
+    sd = sd(weight, na.rm = TRUE)) %>%
+    mutate(se = sd/sqrt(n))
+
 ```
 
 
-Plotting it
+## Plot
 ```{r}
 
 #check correlation between caterpillar number and weight
 plot(cat_long$caterpillar_number,cat_long$weight) #it's the opposite of what I expected 
 
-cat <- ggplot(data = cat_long, mapping = aes(x = soil_inocula, y = weight), 
-              colour= soil_inocula)+
+#now check by soil inocula and Experiment
+ggplot(cat_summary, mapping=aes(x=n, y=mean, group=soil_inocula))+
+  geom_point()+
+  geom_smooth(method="lm", se=TRUE)+
+  facet_wrap(Experiment~soil_inocula) #difficult to tell, it's not really balanced
+
+#plot boxplot Phyto
+phyto <- ggplot(data = subset(cat_summary, Experiment == "simulated"),
+       mapping = aes(x = soil_inocula, y = mean), colour= soil_inocula)+
   geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
-  geom_jitter(data = cat_long, mapping = (aes(soil_inocula, weight, fill = soil_inocula)),
+  geom_jitter(data = subset(cat_summary, Experiment == "simulated"),
+              mapping = (aes(soil_inocula, mean, fill = soil_inocula)),
               shape = 21, size = 1.8, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
-  scale_fill_manual(values = color_pathway_induced)
+  scale_fill_manual(values = color_pathway_induced)+
+  ylim(0,35)+
+  axis_looks+
+  theme(legend.position = "none")+
+  labs(y="M. brassicae weight (mg) 8dpi", x=" ")
 
-p.cat <- cat + 
-         facet_wrap(~Experiment)+ #, scales = "free") +
-          #ylim(0,35)+
-          axis_looks+
-         # theme(axis.text.x = element_blank())+
-          theme(legend.position = "none")
-p.cat 
-
-
-# make a boxplot
-p1 <- ggplot(data = cat_long,
-            mapping = aes(x = soil_inocula, y = weight), colour= soil_inocula)+
-  geom_boxplot(mapping = aes(fill=soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
-  geom_jitter(data = cat_long,
-              mapping = (aes(x = soil_inocula, y = weight, fill = soil_inocula)),
+#plot boxplot Insects
+insects <- ggplot(data = subset(cat_summary, Experiment == "real_insects"),
+       mapping = aes(x = soil_inocula, y = mean), colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(cat_summary, Experiment == "real_insects"),
+              mapping = (aes(soil_inocula, mean, fill = soil_inocula)),
               shape = 21, size = 1.8, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
-  scale_fill_manual(values = color_pathway_induced)
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,35)+
+  theme(legend.position = "none")+
+  labs(y="M. brassicae weight (mg) 8dpi", x=" ")
 
-
-p2 <- p1 + facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) +
-              labs(y="M. brassicae weight (mg) 8dpi", x=" ") +
-              scale_x_discrete(labels=c("control-conditioned" = "Control-inocula", "JA-conditioned" = "JA-inocula",
-                                      "SA-conditioned" = "SA-inocula"))+
-              axis_looks +
-              theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
-                    strip.background=element_rect(colour="black"))+ #outline of boxes
-              theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
-              theme(legend.position="none") #no legend, to save it better
+#combine plots
+library(patchwork)
+combined_plot <- phyto/insects
 
 #save plot
-ggsave(
-  filename = "caterpillar_weight.svg",
-  plot = p2,
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
   path = "./Plots/04_insect_performance",
-  scale = 1.5,
-  width = 1200,
+  scale = 1.8,
+  width = 500,
   height = 700,
   units = "px",
-  dpi = 300)
-
+  dpi = 300),
+x=c("caterpillar_weight.svg",
+    "caterpillar_weight.png"))
 ```
 
 ## Stats
 
 ```{r}
-#linear Mixed-Effect Models
+
+#Linear Model Phyto
+phyto <- subset(cat_summary, Experiment == "simulated")
+
+#glmer
+lm <- lm(mean ~ soil_inocula, 
+         data=phyto)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+#Linear Model Insects
+insects <- subset(cat_summary, Experiment == "real_insects")
+
+#glmer
+lm <- lm(mean ~ soil_inocula, 
+         data=insects)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+```
+
+*Test later with glmer using plant as random factor, now my lme4 is not working
+```{r}
+
+phyto_long <- subset(cat_long, Experiment == "simulated")
+saveRDS(phyto_long, "./phyto_long.rdata")
+write.csv(phyto_long, "phyto_long.csv", row.names = FALSE)
+
 #Both
-glme <- glmer(weight ~ soil_inocula*Experiment+ (1|ID),
-              family=Gamma, data=cat_long)
+#glme <- glmer(weight ~ soil_inocula*Experiment+ (1|ID),
+#              family=Gamma, data=cat_long)
 
 
 #Get model info 
@@ -310,114 +309,168 @@ aphids_long$time_point <- factor(aphids_long$time_point,
 ```
 
 
-Plotting it
+
+## Plot
 ```{r}
 
-aphids <- ggplot(data = subset(aphids_long, time_point == "dpi_8"),
+
+#Phyto
+aphids_8dpi <- ggplot(data = subset(aphids_long, Experiment == "simulated" & time_point == "dpi_8"),
                  mapping = aes(x = soil_inocula, y = count), 
               colour= soil_inocula)+
   geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
-  geom_jitter(data = subset(aphids_long, time_point == "dpi_8"),
+  geom_jitter(data = subset(aphids_long, Experiment == "simulated" & time_point == "dpi_8"),
               mapping = (aes(soil_inocula, count, fill = soil_inocula)),
-              shape = 21, size = 1.8, color = "black",
+              shape = 21, size = 1.8, alpha=0.9, color = "black",
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
-  scale_fill_manual(values = color_pathway_induced)
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,80)+
+  #facet_wrap(~time_point, scales="free_y")+
+  theme(legend.position="none")
 
-p.aphids <- aphids + 
-            facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) + 
-            axis_looks+
-            labs(y="Number of M. persicae aphids 8dpi", x=" ")+ 
-            scale_x_discrete(labels=c("control-conditioned" = "Control-inocula", "JA-conditioned" = "JA-inocula",
-                                      "SA-conditioned" = "SA-inocula"))+
-            theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
-              theme(legend.position="none")+ #no legend, to save it better
-            theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
-                    strip.background=element_rect(colour="black")) #outline of boxes
+aphids_14dpi <- ggplot(data = subset(aphids_long, Experiment == "simulated" & time_point == "dpi_14"),
+                 mapping = aes(x = soil_inocula, y = count), 
+              colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(aphids_long, Experiment == "simulated" & time_point == "dpi_14"),
+              mapping = (aes(soil_inocula, count, fill = soil_inocula)),
+              shape = 21, size = 1.8, alpha=0.9,color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,600)+
+  #facet_wrap(~time_point, scales="free_y")+
+  theme(legend.position="none")
+
+
+#insects
+aphids_8dpi_i <- ggplot(data = subset(aphids_long, Experiment == "real_insects" & time_point == "dpi_8"),
+                 mapping = aes(x = soil_inocula, y = count), 
+              colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(aphids_long, Experiment == "real_insects" & time_point == "dpi_8"),
+              mapping = (aes(soil_inocula, count, fill = soil_inocula)),
+              shape = 21, size = 1.8, alpha=0.9,color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,80)+
+  #facet_wrap(~time_point, scales="free_y")+
+  theme(legend.position="none")
+
+aphids_14dpi_i <- ggplot(data = subset(aphids_long, Experiment == "real_insects" & time_point == "dpi_14"),
+                 mapping = aes(x = soil_inocula, y = count), 
+              colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(aphids_long, Experiment == "real_insects" & time_point == "dpi_14"),
+              mapping = (aes(soil_inocula, count, fill = soil_inocula)),
+              shape = 21, size = 1.8, alpha=0.9,color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,600)+
+  #facet_wrap(~time_point, scales="free_y")+
+  theme(legend.position="none")
+
+#combined plot
+library(patchwork)
+aphids <- (aphids_8dpi+aphids_14dpi)/(aphids_8dpi_i+aphids_14dpi_i)
+
 
 #save plot
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/04_insect_performance",
+  scale = 1.8,
+  width = 1000,
+  height = 700,
+  units = "px",
+  dpi = 300),
+x=c("aphid_count_bothTimepoints.svg",
+    "aphid_count_bothTimepoints.png"))
+```
+
+
+Two timepoints
+```{r}
+
+#First, make a summary table
+#summary stats 
+df_aphids <- aphids_long %>%
+  group_by(Experiment, soil_inocula, time_point) %>%
+  summarise(
+    n = n(),
+    mean = mean(count, na.rm = TRUE),
+    sd = sd(count, na.rm = TRUE)) %>%
+    mutate(se = sd/sqrt(n))
+
+df_aphids
+
+#plot it
+p <- ggplot(data = df_aphids, mapping = aes(x = time_point, y = mean, 
+              colour= soil_inocula, group=soil_inocula))+
+  geom_point(size=3)+
+  geom_line(aes(group = soil_inocula), size = 0.6, linetype="solid") +
+  geom_errorbar(aes(ymin = mean - se, ymax = mean + se), width = 0.15, size=0.8) +  # Error bars
+  facet_wrap(~ Experiment)+
+  scale_colour_manual(values = color_pathway_induced)
+
+
 ggsave(
-  filename = "aphid_number_8dpi.svg",
-  plot = p.aphids,
+  filename = "aphid_number_two_timepoints_lines.svg",
+  plot = p,
   path = "./Plots/04_insect_performance",
   scale = 1.5,
   width = 1200,
   height = 700,
   units = "px",
   dpi = 300)
-
-#make another for 14dpi for supplementary
-aphids <- ggplot(data = subset(aphids_long, time_point == "dpi_14"),
-                 mapping = aes(x = soil_inocula, y = count), 
-              colour= soil_inocula)+
-  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
-  geom_jitter(data = subset(aphids_long, time_point == "dpi_14"),
-              mapping = (aes(soil_inocula, count, fill = soil_inocula)),
-              shape = 21, size = 1.8, color = "black",
-              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
-  scale_fill_manual(values = color_pathway_induced)
-
-p.aphids <- aphids + 
-            facet_wrap(~Experiment, labeller = as_labeller(Experiment_names)) + 
-            axis_looks+
-            labs(y="Number of M. persicae aphids 14dpi", x=" ")+ 
-            scale_x_discrete(labels=c("control-conditioned" = "Control-inocula", "JA-conditioned" = "JA-inocula",
-                                      "SA-conditioned" = "SA-inocula"))+
-            theme(panel.spacing = unit(0.2, "lines"))+ #space in between facets
-              theme(legend.position="none")+ #no legend, to save it better
-            theme(strip.text.x = element_text(size = 11, face = "bold"), #text in boxes
-                    strip.background=element_rect(colour="black")) #outline of boxes
-
-#save plot
-ggsave(
-  filename = "aphid_number_14dpi.svg",
-  plot = p.aphids,
-  path = "./Plots/04_insect_performance",
-  scale = 1.5,
-  width = 1200,
-  height = 700,
-  units = "px",
-  dpi = 300)
-
 
 ```
+
 
 ## Stats
 
 ```{r}
-#linear Mixed-Effect Models
 
-dpi14 <- subset(aphids_long, time_point == "dpi_14")
+#full df
+aphids_long
 
-#Both
-glm <- glm(count ~ soil_inocula*time_point*Experiment,
-              family=Gamma, data=aphids_long)
+#subset to phyto
+phyto <- subset(aphids_long, Experiment == "simulated")
 
-#Get model info 
-library(jtools)
-summ(glm)
-Anova(glm)
-summary(glm)
+glm <- glm(count ~ soil_inocula*time_point,
+              family=Gamma(link="log"),
+              data=phyto)
 
 #check
-simulateResiduals(glm, plot=T) #ok!
+simulateResiduals(glm, plot=T) #ok
 
-library("blmeco") 
-dispersion_glmer(glme) #it shouldn't be over 1.4 so it's ok
-qqnorm(resid(glm), main="normal qq-plot, residuals") #good
-qqline(resid(glm))
+#get summary
+car::Anova(glm, type="II", test.statistic="F")
 
-plot(fitted(glm), resid(glm)) #residuals vs fitted, ok
-abline(h=0)
 
-#save table
-. <- c("Soil inocula (S)", "Time point (T)", "Experiment (E)", "S*T", "S*E", "T*E", "S*T*E")
-glm_table <- cbind (.,as.data.frame(Anova(glm)))
-table <- nice_table(glm_table,
-              title = c("Table X. Generalized Linear Model for Aphid number Full 2 time points"),
-              note = "Gamma distribution")
+#subset to insects
+insects <- subset(aphids_long, Experiment == "real_insects")
 
-flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_TwoTimePoints_glm.docx")
+glm <- glm(count ~ soil_inocula*time_point,
+              family=Gamma(link="log"),
+              data=insects)
+
+#check
+simulateResiduals(glm, plot=T) #ok
+
+#get summary
+car::Anova(glm, type="II", test.statistic="F")
+
 
 ```
 
+#save
+```{r}
+save.image("./R_Environments/insect_performance/insect_performance.Rdata")
+```
 

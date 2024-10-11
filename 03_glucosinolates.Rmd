@@ -182,7 +182,7 @@ conditioning_gluco <- gluco %>%
 *Now I have 3 df, gluco, conditioning_long and conditioning_gluco 
 
 
-Plot indolic, aliphatic and total
+###Plot indolic, aliphatic and total
 ```{r}
 
 #first filter by those glucosinolates
@@ -234,7 +234,7 @@ x=c("cond_barplot_aliphatic_indolic.svg",
 * Values look similar between experiments in the conditioning phase
 * There are slightly less replicates for SA
 
-##Stats
+###Stats
 
 ```{r}
 
@@ -503,6 +503,7 @@ pair_exp_df <- as.data.frame(pairwise_exp$Adonis.tab) #no difference
 ```
 
 
+
 ### Individual Barplots
 
 Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped by Experiment + colored in the upper boxes. For this, first I need to make a summary table df. 
@@ -606,6 +607,228 @@ dev.off()
 These two plots will be fused in one in illustrator
 
 ## Feedback
+
+###Plot indolic, aliphatic and total
+First fix df 
+```{r}
+
+#these are my df's
+gluco #full wide df
+long #full long df 
+
+#subset to feedback phase & keep only indolic and alyphatic for now 
+feedback_long <- long %>% 
+                 filter(glucosinolate %in% c("Glu_alyphatic","Glu_indolic")&
+                 Phase == "feedback"&
+                 soil_inocula != "non-conditioned")
+
+levels(feedback_long$herbivory) #wrongly named
+
+#change names of herbivory
+feedback_long <- feedback_long %>% 
+                 mutate(herbivory=case_when(
+                   herbivory == "MeJA" ~ "caterpillar",
+                   herbivory == "SA" ~ "aphid",
+                   herbivory == "mock" ~ "not_infested",
+                   herbivory == "without" ~ "not_infested",
+                   TRUE ~ herbivory))
+#make it a factor
+feedback_long$herbivory <- factor(feedback_long$herbivory, levels=c("not_infested", "caterpillar", "aphid"))
+
+#finally, delete not informative columns
+feedback_long <- feedback_long %>% dplyr::select(-Stress, -plant_pathway_induced, -Glucosinolates, -treatment)%>%
+                 relocate(soil_inocula, .after=Experiment)
+
+#Now make a summary df
+df_feedback_summ <- feedback_long  %>% 
+                    group_by(Experiment, soil_inocula, herbivory, glucosinolate) %>%
+                    summarise(
+                    n = n(),
+                    mean = mean(concentration, na.rm = TRUE),
+                    sd = sd(concentration, na.rm = TRUE)) %>%
+                    mutate(se = sd/sqrt(n))
+```  
+
+```{r}
+
+#Finally, plot it by Experiment; First phyto
+aliphatic <- ggplot(data = subset(df_feedback_summ, Experiment == "simulated" & glucosinolate == "Glu_alyphatic"),
+       mapping = aes(x = glucosinolate, y = mean), colour= soil_inocula)+
+  geom_bar(aes(fill = soil_inocula), stat = "identity",
+           position = position_dodge(0.8), width = 0.8, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = soil_inocula),
+                width = 0.2, position = position_dodge(0.8))+
+  geom_jitter(data = subset(feedback_long, Experiment == "simulated" & glucosinolate == "Glu_alyphatic"),
+              mapping = (aes(glucosinolate, concentration,
+                             fill = soil_inocula)),
+              shape = 21, size = 1.5, alpha = 0.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,30)+
+  theme(legend.position="none")+
+  facet_wrap(~herbivory)+
+  theme(panel.spacing = unit(0, "lines"))
+
+indolic <- ggplot(data = subset(df_feedback_summ, Experiment == "simulated" & glucosinolate == "Glu_indolic"),
+       mapping = aes(x = glucosinolate, y = mean), colour= soil_inocula)+
+  geom_bar(aes(fill = soil_inocula), stat = "identity",
+           position = position_dodge(0.8), width = 0.8, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = soil_inocula),
+                width = 0.2, position = position_dodge(0.8))+
+  geom_jitter(data = subset(feedback_long, Experiment == "simulated" & glucosinolate == "Glu_indolic"),
+              mapping = (aes(glucosinolate, concentration,
+                             fill = soil_inocula)),
+              shape = 21, size = 1.5, alpha = 0.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,60)+
+  theme(legend.position="none")+
+  facet_wrap(~herbivory)+
+  theme(panel.spacing = unit(0, "lines"))
+
+# Combine the two plots
+library(patchwork)
+combined_plot <- aliphatic / indolic
+
+#save plot
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/03_glucosinolates",
+  scale = 1.8,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300),
+x=c("feedback_Phyto_barplot_aliphatic_indolic.svg",
+    "feedback_Phyto_barplot_aliphatic_indolic.png"))
+
+#Then insects
+aliphatic_i <- ggplot(data = subset(df_feedback_summ, Experiment == "real_insects" & glucosinolate == "Glu_alyphatic"),
+       mapping = aes(x = glucosinolate, y = mean), colour= soil_inocula)+
+  geom_bar(aes(fill = soil_inocula), stat = "identity",
+           position = position_dodge(0.8), width = 0.7, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = soil_inocula),
+                width = 0.2, position = position_dodge(0.8))+
+  geom_jitter(data = subset(feedback_long, Experiment == "real_insects" & glucosinolate == "Glu_alyphatic"),
+              mapping = (aes(glucosinolate, concentration,
+                             fill = soil_inocula)),
+              shape = 21, size = 1.5, alpha = 0.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,30)+
+  theme(legend.position="none")+
+  facet_wrap(~herbivory)+
+  theme(panel.spacing = unit(0, "lines"))
+
+indolic_i <- ggplot(data = subset(df_feedback_summ, Experiment == "real_insects" & glucosinolate == "Glu_indolic"),
+       mapping = aes(x = glucosinolate, y = mean), colour= soil_inocula)+
+  geom_bar(aes(fill = soil_inocula), stat = "identity",
+           position = position_dodge(0.8), width = 0.7, color = "black")+
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, group = soil_inocula),
+                width = 0.2, position = position_dodge(0.8))+
+  geom_jitter(data = subset(feedback_long, Experiment == "real_insects" & glucosinolate == "Glu_indolic"),
+              mapping = (aes(glucosinolate, concentration,
+                             fill = soil_inocula)),
+              shape = 21, size = 1.5, alpha = 0.8, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(0,60)+
+  theme(legend.position="none")+
+  facet_wrap(~herbivory)+
+  theme(panel.spacing = unit(0, "lines"))
+
+# Combine the two plots
+combined_plot_i <- aliphatic_i / indolic_i
+
+#save plot
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/03_glucosinolates",
+  scale = 1.8,
+  width = 800,
+  height = 700,
+  units = "px",
+  dpi = 300),
+x=c("feedback_Insects_barplot_aliphatic_indolic.svg",
+    "feedback_Insects_barplot_aliphatic_indolic.png"))
+
+```
+
+* Values look similar between experiments in the conditioning phase
+* There are slightly less replicates for SA
+
+###Stats
+
+```{r}
+
+#Phyto-Alyphatic
+phyto <- subset(feedback_long, Experiment == "simulated" & glucosinolate == "Glu_alyphatic")
+
+lm <- lm(log(concentration) ~ soil_inocula*herbivory,
+         data=phyto)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+#pairiwse differences
+emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
+cld(emmeans_herb$emmeans, adjust="tukey")
+
+#Phyto-Indolic
+phyto_i <- subset(feedback_long, Experiment == "simulated" & glucosinolate == "Glu_indolic")
+
+lm <- lm(log(concentration) ~ soil_inocula*herbivory,
+         data=phyto_i)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+#pairiwse differences
+emmeans_soil <- emmeans(lm, pairwise~soil_inocula) #differences between Ctrl and SA
+
+#Insects-Alyphatic
+insects <- subset(feedback_long, Experiment == "real_insects" & glucosinolate == "Glu_alyphatic")
+
+lm <- lm(log(concentration) ~ soil_inocula*herbivory,
+         data=insects)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+#pairiwse differences
+emmeans_soil <- emmeans(lm, pairwise~soil_inocula) #differences between CTR and JA and SA
+emmeans_herb <- emmeans(lm, pairwise~herbivory)
+
+
+#Phyto-Indolic
+insects_i <- subset(feedback_long, Experiment == "real_insects" & glucosinolate == "Glu_indolic")
+
+lm <- lm(log(concentration) ~ soil_inocula*herbivory,
+         data=insects_i)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+#pairiwse differences
+emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between Ctrl and SA
+
+```
+
+
+```{r}
+save.image("./R_Environments/glucosinolates/glucosinolates.Rdata")
+```
+
+
+
 
 ```{r}
 

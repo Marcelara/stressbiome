@@ -744,6 +744,13 @@ flextable::save_as_docx(table, path = "./Tables/02_beta_diversity/phyto_pairwise
 rm.all.but(keep=c("color_experiment", "color_stress"), keep_functions = TRUE)
 ```
 
+
+```{r}
+save.image("./R_Environments/02_beta_diversity/ITS.Rdata")
+```
+
+
+
 Finished for ITS, continue with 16S
 
 #16S
