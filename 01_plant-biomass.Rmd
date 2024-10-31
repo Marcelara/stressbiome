@@ -20,23 +20,6 @@ This script will deal with ploting and analyzing the plant biomass in both condi
 
 # General settings 
 
-## Rmarkdown
-
-```{r global settings, include=FALSE}
-
-#Set global options for r chunks
-knitr::opts_chunk$set(
-  echo = TRUE,#show code
-  fig.width = 9,
-  fig.height = 6,
-  dpi = 300,
-  error=TRUE, #keep knitting even if error appears
-  message=FALSE, #don't show messages
-  warning=FALSE, #don't show warnings
-  collapse=FALSE)
-
-```
-
 ## Loading packages
 
 ```{r loading packages, echo=TRUE}
@@ -81,12 +64,12 @@ library(lsr)
 theme_set(theme_bw())
 
 # Set colors
-color_JA <- rgb(0.9019607843137255, 0.6235294117647059, 0) #yellow-orange
-color_SA <- rgb(0.26666666666666666,0.4470588235294118,0.7686274509803922) #blue
-color_control <- rgb(0.6,0.6,0.6) #gray
-color_simulated <- rgb(0.8,0.2,0.6) #pink
-color_real_insects <- rgb(0, 0.6196078431372549, 0.45098039215686275) #green
-color_non-conditioned <-rgb(1,1,1,1)
+color_JA <- "#E69F00" #yellow-orange
+color_SA <- "#4472C4" #blue
+color_control <- "#BFBFBF" #gray
+color_simulated <- "#CC3399" #pink
+color_real_insects <- "#70AD47"
+color_non_conditioned <-"#FFFFFF"
 
 color_pathway_induced <- c(color_control, color_JA, color_SA) #control, JA and SA
 color_experiment <- c(color_simulated, color_real_insects) #simulated and real herbivory
@@ -103,10 +86,11 @@ axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
 
 #Get names for boxes in facet wrap
 Experiment_names <- c(
-                    `simulated` = "Simulated Herbivory",
-                    `real_insects` = "Insect Herbivory")
+                    `simulated` = "Phytohormone-treated",
+                    `real_insects` = "Insect-Infested")
 
 ```
+
 
 ## Conditioning 
 
@@ -135,33 +119,16 @@ group_by(Phase, Experiment, plant_pathway_induced) %>%
     mean = mean(shoot_biomass_mg, na.rm = TRUE),
     sd = sd(shoot_biomass_mg, na.rm = TRUE))
 
-#plotting quickly
-p <- ggpairs(biomass[c("Experiment","Phase","plant_pathway_induced", "shoot_biomass_mg")], 
-            mapping = aes(color = Experiment))
-
-#adding colors
-p + scale_color_manual(values=color_experiment)+
-           scale_fill_manual(values=color_experiment)
 
 #subsetting df to only conditioning
 conditioning <- biomass %>% 
                 filter(Phase == "conditioning")
 
-p <- ggpairs(conditioning[c("Experiment","plant_pathway_induced", "shoot_biomass_mg")], 
-            mapping = aes(color = Experiment))
-
-#adding colors
-p + scale_color_manual(values=color_experiment)+
-           scale_fill_manual(values=color_experiment)
 
 #change levels of Experiment
 levels(conditioning$Experiment)
 conditioning <- conditioning %>%
                 mutate(Experiment = factor(Experiment, levels = c("simulated", "real_insects" )))
-
-#clean
-rm(p)
-dev.off()
 
 ```
 
@@ -244,6 +211,20 @@ plot(aov_biomass, which = 3)
 
 
 Simulated Herbivory
+
+```{r}
+x <- simu %>% group_by(plant_pathway_induced) %>%
+  summarise(
+    n = n(),
+    mean = mean(shoot_biomass_mg, na.rm = TRUE))
+
+
+summarise(
+    n = n(),
+    mean = mean(concentration, na.rm = TRUE))
+```
+
+
 ```{r}
 #one-way ANOVA: Simulated
 simu <- subset(conditioning, Experiment == "simulated") %>% droplevels()
@@ -285,6 +266,14 @@ rm(emmeans, posthoc, ph_table, ., aov_table, table)
 ```
 
 Real Herbivory
+
+```{r}
+x <- real %>% group_by(plant_pathway_induced) %>%
+  summarise(
+    n = n(),
+    mean = mean(shoot_biomass_mg, na.rm = TRUE))
+```
+
 ```{r}
 #one-way ANOVA: Real Insects
 real <- subset(conditioning, Experiment == "real_insects") %>% droplevels()
@@ -330,7 +319,7 @@ rm(ph_table, aov_table, table, emmeans, posthoc, real, simu, aov_real, aov_simul
 
 **[Explanation about experimental design]**
 
-In the feedback phase I'm interested in knowing the effect of both the type of soil inocula and the type of herbivory on the plant's biomass. Thus,the data will be analyzed with a two-way ANOVA using 'soil_inocula' and 'herbivory' as factors. One analysis will be made per xperiment.
+In the feedback phase I'm interested in knowing the effect of both the type of soil inocula and the type of herbivory on the plant's biomass. Thus,the data will be analyzed with a two-way ANOVA using 'soil_inocula' and 'herbivory' as factors. One analysis will be made per experiment.
 
 ### Exploring data 
 
@@ -353,22 +342,19 @@ feedback <- feedback %>%
 feedback <- feedback %>%
                 mutate(herbivory = factor(herbivory, labels = c("uninfested", "Mamestra", "Myzus")))%>%
                 filter(!is.na(shoot_biomass_mg))%>% #remove NAs
-                subset(soil_inocula != "non-conditioned")%>%
                 droplevels()
 
 str(feedback)
 
-#quick plot
-p <- ggpairs(feedback[c("Experiment","soil_inocula", "herbivory", "shoot_biomass_mg")], 
-            mapping = aes(color = Experiment)) #balanced
+#finally, delete not informative columns
+feedback <- feedback %>% dplyr::select(-Phase, -plant_pathway_induced, -Stress, -Leaf_area)
 
-#adding colors
-p + scale_color_manual(values=color_experiment)+
-           scale_fill_manual(values=color_experiment)
+feedback_full <- feedback
+str(feedback_full)
 
-#clean
-rm(p)
-dev.off()
+feedback <- feedback %>%  subset(soil_inocula != "non-conditioned") %>% droplevels()
+str(feedback)
+
 
 ```
 
@@ -380,6 +366,58 @@ Boxplot with rawdata points, colored by plant_pathway_induced and facet wraped b
 ```{r}
 
 # make a boxplot
+biomass_p <- ggplot(data = subset(feedback, Experiment == "simulated"),
+       mapping = aes(x = soil_inocula, y = shoot_biomass_mg), colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(feedback, Experiment == "simulated"),
+              mapping = (aes(soil_inocula, shoot_biomass_mg, fill = soil_inocula)),
+              shape = 21, size = 1.8, alpha=0.9, color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(100,2000)+
+  theme(legend.position="none")+
+  facet_wrap(~herbivory)+
+  theme(panel.spacing = unit(0, "lines"))
+
+
+biomass_i <- ggplot(data = subset(feedback, Experiment == "real_insects"),
+       mapping = aes(x = soil_inocula, y = shoot_biomass_mg), colour= soil_inocula)+
+  geom_boxplot(mapping = aes(fill= soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
+  geom_jitter(data = subset(feedback, Experiment == "real_insects"),
+              mapping = (aes(soil_inocula, shoot_biomass_mg, fill = soil_inocula)),
+              shape = 21, size = 1.8, alpha=0.9,color = "black",
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
+  scale_fill_manual(values = color_pathway_induced)+
+  axis_looks+
+  ylim(100,2000)+
+  theme(legend.position="none")+
+  facet_wrap(~herbivory)+
+  theme(panel.spacing = unit(0, "lines"))
+
+
+# Combine the two plots
+library(patchwork)
+combined_plot <- biomass_p + biomass_i
+
+#save plot
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/01_plant-biomass",
+  scale = 2,
+  width = 1800,
+  height = 500,
+  units = "px",
+  dpi = 300),
+x=c("feedback_biomass.svg",
+    "feedback_biomass.png"))
+
+```
+
+Old plot
+```{r}
 p1 <- ggplot(data = feedback,
             mapping = aes(x = soil_inocula, y = shoot_biomass_mg), colour= soil_inocula)+
   geom_boxplot(mapping = aes(fill=soil_inocula), position = position_dodge(width = 0.8), lwd=0.8)+
@@ -434,7 +472,40 @@ dev.off()
 
 ### Stats
 
+```{r}
 
+#Phyto
+phyto <- subset(feedback, Experiment == "simulated")
+
+x<- mean(phyto$shoot_biomass_mg)
+
+lm <- lm(shoot_biomass_mg ~ soil_inocula*herbivory,
+         data=phyto)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+#pairiwse differences
+emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
+
+#Insects
+insects <- subset(feedback, Experiment == "real_insects")
+
+y <- mean(insects$shoot_biomass_mg)
+lm <- lm(shoot_biomass_mg ~ soil_inocula*herbivory,
+         data=insects)
+
+car::Anova(lm, type="II", test.statistic="F")
+simulateResiduals(lm, plot=T) #ok
+
+#pairiwse differences
+emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
+
+
+```
+
+
+Old stats
 ```{r}
 
 #check data distribution
@@ -477,6 +548,33 @@ flextable::save_as_docx(ph_table, path = "./Tables/01_plant-biomass/feedback_ph_
 ```
 
 
+### Cohen's D
+
+```{r}
+
+library(effsize)
+library(rstatix)
+
+feedback_full
+phyto <- subset(feedback_full, Experiment == "simulated")
+insect <- subset(feedback_full, Experiment == "real_insects")
+levels(phyto$soil_inocula)
+
+#Phyto
+ctr <- phyto %>% filter(soil_inocula %in% c("non-conditioned", "control-conditioned"))
+
+control <- cohen.d(ctr$shoot_biomass_mg[ctr$soil_inocula == "control-conditioned"],
+                     ctr$shoot_biomass_mg[ctr$soil_inocula == "non-conditioned"],
+                     paired = FALSE, hedges.correction = TRUE)
+
+ctr.i <- insect %>% filter(soil_inocula %in% c("non-conditioned", "control-conditioned"))
+
+control <- cohen.d(ctr.i$shoot_biomass_mg[ctr.i$soil_inocula == "control-conditioned"],
+                     ctr.i$shoot_biomass_mg[ctr.i$soil_inocula == "non-conditioned"],
+                     paired = FALSE, hedges.correction = TRUE)
+
+
+```
 
 
 
