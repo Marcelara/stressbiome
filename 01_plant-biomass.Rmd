@@ -474,32 +474,58 @@ dev.off()
 
 ```{r}
 
-#Phyto
+#---- Phyto ----
 phyto <- subset(feedback, Experiment == "simulated")
 
 x<- mean(phyto$shoot_biomass_mg)
 
+#with interaction
 lm <- lm(shoot_biomass_mg ~ soil_inocula*herbivory,
          data=phyto)
 
 car::Anova(lm, type="II", test.statistic="F")
 simulateResiduals(lm, plot=T) #ok
 
+
 #pairiwse differences
 emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
 
-#Insects
+#Save tables 
+. <- c("Soil inocula (S)", "Herbivory (H)", "S*H", "Residuals")
+lm_table <- cbind (., as.data.frame(Anova(lm)))
+lm_table$`Pr(>F)` <- round(lm_table$`Pr(>F)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. Linear Model for plant biomass in Feedback phase - Phyto"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/feedback_lm_biomass_phyto.docx")
+
+#---- Insects ----
 insects <- subset(feedback, Experiment == "real_insects")
 
-y <- mean(insects$shoot_biomass_mg)
-lm <- lm(shoot_biomass_mg ~ soil_inocula*herbivory,
+lm.i <- lm(shoot_biomass_mg ~ soil_inocula*herbivory,
          data=insects)
 
-car::Anova(lm, type="II", test.statistic="F")
-simulateResiduals(lm, plot=T) #ok
+car::Anova(lm.i, type="II", test.statistic="F")
+simulateResiduals(lm.i, plot=T) #ok
 
 #pairiwse differences
-emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
+emmeans_herb <- emmeans(lm.i, pairwise~herbivory) #differences between NI and caterpillar
+
+#insects
+lm.i_table <- cbind (., as.data.frame(Anova(lm.i)))
+lm.i_table$`Pr(>F)` <- round(lm.i_table$`Pr(>F)`, 3)
+table <- nice_table(lm.i_table,
+              title = c("Table X. Linear Model for plant biomass in Feedback phase - Insects"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/feedback_lm_biomass_insects.docx")
 
 
 ```
