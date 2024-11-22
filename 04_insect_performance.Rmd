@@ -205,22 +205,61 @@ x=c("caterpillar_weight.svg",
 #Linear Model Phyto
 phyto <- subset(cat_summary, Experiment == "simulated")
 
-#glmer
-lm <- lm(mean ~ soil_inocula, 
+#lm
+lm.p <- lm(mean ~ soil_inocula, 
          data=phyto)
 
 car::Anova(lm, type="II", test.statistic="F")
 simulateResiduals(lm, plot=T) #ok
 
+#save result
+factors <- c("Soil inoculum (S)", "Residuals")
+lm.p_table <- cbind (factors, as.data.frame(Anova(lm.p)))
+lm.p_table$`Pr(>F)` <- round(lm.p_table$`Pr(>F)`, 3)
+table <- nice_table(lm.p_table,
+              title = c("Table X. Linear Model for aliphatic GLS in Feedback phase - Insects"),
+              note = "~ soil_inocula*herbivory")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpillar_weight_lm_phyto.docx")
+
 #Linear Model Insects
 insects <- subset(cat_summary, Experiment == "real_insects")
 
 #glmer
-lm <- lm(mean ~ soil_inocula, 
+lm.i <- lm(mean ~ soil_inocula, 
          data=insects)
 
-car::Anova(lm, type="II", test.statistic="F")
-simulateResiduals(lm, plot=T) #ok
+car::Anova(lm.i, type="II", test.statistic="F")
+simulateResiduals(lm.i, plot=T) #ok
+
+#save result
+factors <- c("Soil inoculum (S)", "Residuals")
+lm.i_table <- cbind (factors, as.data.frame(Anova(lm.i)))
+lm.i_table$`Pr(>F)` <- round(lm.i_table$`Pr(>F)`, 3)
+table <- nice_table(lm.i_table,
+              title = c("Table X. Linear Model for aliphatic GLS in Feedback phase - Insects"),
+              note = "~ soil_inocula*herbivory")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpillar_weight_lm_insects.docx")
+
+```
+
+```{r}
+#difference between experiments
+
+exp_summ <- cat_summary %>% 
+            as.data.frame() %>% 
+            group_by(Experiment, soil_inocula) %>% 
+            summarise(mean=mean, na.rm=TRUE)
+
+
+write.csv(cat_summary, file="./cat_summary.csv")
 
 ```
 
@@ -442,29 +481,60 @@ aphids_long
 #subset to phyto
 phyto <- subset(aphids_long, Experiment == "simulated")
 
-glm <- glm(count ~ soil_inocula*time_point,
+glm.p <- glm(count ~ soil_inocula*time_point,
               family=Gamma(link="log"),
               data=phyto)
 
 #check
-simulateResiduals(glm, plot=T) #ok
+simulateResiduals(glm.p , plot=T) #ok
+summary(glm.p)
 
 #get summary
-car::Anova(glm, type="II", test.statistic="F")
+x <- car::Anova(glm.p , type="II", test.statistic="F")
+x <- as.data.frame(x)
+
+#save result
+factors <- c("Soil inoculum (S)", "Time point(T)", "S*T", "Residuals")
+glm.p_table <- cbind (factors, x)
+glm.p_table$`Pr(>F)` <- round(glm.p_table$`Pr(>F)`, 3)
+table <- nice_table(glm.p_table,
+              title = c("Table X. GLM for aphid number over time - Phyto"),
+              note = "~ soil_inocula*Timepoint")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_glm_phyto.docx")
 
 
-#subset to insects
+
+
+#---- insects ----
 insects <- subset(aphids_long, Experiment == "real_insects")
 
-glm <- glm(count ~ soil_inocula*time_point,
+glm.i <- glm(count ~ soil_inocula*time_point,
               family=Gamma(link="log"),
               data=insects)
 
 #check
-simulateResiduals(glm, plot=T) #ok
+simulateResiduals(glm.i, plot=T) #ok
 
 #get summary
-car::Anova(glm, type="II", test.statistic="F")
+y <- car::Anova(glm.i , type="II", test.statistic="F")
+y <- as.data.frame(y)
+
+#save result
+factors <- c("Soil inoculum (S)", "Time point(T)", "S*T", "Residuals")
+glm.i_table <- cbind (factors, y)
+glm.i_table$`Pr(>F)` <- round(glm.i_table$`Pr(>F)`, 3)
+table <- nice_table(glm.i_table,
+              title = c("Table X. GLM for aphid number over time - Insects"),
+              note = "~ soil_inocula*Timepoint")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_glm_insects.docx")
 
 
 ```
