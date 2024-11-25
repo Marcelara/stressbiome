@@ -1,0 +1,65 @@
+variable,test,test_statistic,Pvalue,sign,n_Riv_Ctr,n_Riv_SA,Riv_Ctr_mean,Riv_Ctr_sd,Riv_SA_mean,Riv_SA_sd
+sum.np,Wilcoxon rank sum exact test,114.0,0.4638,ns,18.0,15.0,52.0,10.7,54.0,7.2
+lat.c,Wilcoxon rank sum exact test,147.0,0.6816,ns,18.0,15.0,9.0,2.4,14.3,6.3
+num.c,Wilcoxon rank sum test with continuity correction,119.0,0.5751,ns,18.0,15.0,32.6,5.6,37.0,6.3
+num.cs,Wilcoxon rank sum test with continuity correction,134.5,1.0,ns,18.0,15.0,17.7,3.6,17.0,4.5
+num.css,Wilcoxon rank sum test with continuity correction,141.5,0.8272,ns,18.0,15.0,7.6,1.7,8.2,2.9
+sum.c,Wilcoxon rank sum exact test,72.0,0.0224,*,18.0,15.0,205.0,22.5,281.0,22.1
+mean.c,Wilcoxon rank sum exact test,112.0,0.4211,ns,18.0,15.0,9.6,1.6,9.6,1.0
+occ.pd,,,,,,,,,,
+num.pd,,,,,,,,,,
+sum.pd,,,,,,,,,,
+mean.pd,,,,,,,,,,
+rate.pd,,,,,,,,,,
+occ.e1,Pearson's Chi-squared test,,,,18.0,15.0,,,,
+lat.e1,Wilcoxon rank sum exact test,149.0,0.63,ns,18.0,15.0,125.9,22.7,103.2,21.2
+lat.e1p,Wilcoxon rank sum exact test,155.0,0.486,ns,18.0,15.0,116.9,22.7,88.9,19.1
+num.e1,Wilcoxon rank sum test with continuity correction,100.0,0.2111,ns,18.0,15.0,10.7,1.5,13.5,1.6
+sum.e1,Wilcoxon rank sum exact test,126.0,0.7618,ns,18.0,15.0,25.3,7.0,17.8,2.5
+mean.e1,Wilcoxon rank sum exact test,160.0,0.3807,ns,18.0,15.0,2.6,0.7,1.5,0.2
+max.e1,Wilcoxon rank sum exact test,143.0,0.7891,ns,18.0,15.0,9.0,2.4,5.7,1.4
+prop.e1,Wilcoxon rank sum exact test,125.0,0.7347,ns,18.0,15.0,14.6,3.5,14.3,3.1
+occ.sing.e1,Pearson's Chi-squared test with Yates' continuity correction,1.2375,0.266,ns,18.0,15.0,,,,
+sing.e1,Wilcoxon rank sum test with continuity correction,100.0,0.2075,ns,18.0,15.0,2.7,0.8,3.5,0.7
+num.e1f,Wilcoxon rank sum test with continuity correction,96.0,0.1591,ns,18.0,15.0,3.2,0.5,4.4,0.7
+num.e1m,Wilcoxon rank sum test with continuity correction,131.0,0.8955,ns,18.0,15.0,2.8,0.9,2.3,0.7
+num.e1l,Wilcoxon rank sum test with continuity correction,90.0,0.1019,ns,18.0,15.0,1.9,0.4,3.2,0.6
+sum.e1f,Wilcoxon rank sum exact test,97.0,0.1776,ns,18.0,15.0,3.4,0.5,4.6,0.7
+sum.e1m,Wilcoxon rank sum test with continuity correction,140.0,0.8667,ns,18.0,15.0,13.3,5.9,3.2,1.6
+sum.e1l,Wilcoxon rank sum test with continuity correction,113.0,0.4348,ns,18.0,15.0,3.0,1.1,2.3,0.8
+prop.e1f,Wilcoxon rank sum exact test,103.0,0.2586,ns,18.0,15.0,4.9,1.2,9.3,2.9
+prop.e1m,Wilcoxon rank sum test with continuity correction,142.0,0.8084,ns,18.0,15.0,5.8,2.8,1.8,0.7
+prop.e1l,Wilcoxon rank sum test with continuity correction,114.0,0.4565,ns,18.0,15.0,3.9,1.5,3.1,0.9
+occ.e2,Pearson's Chi-squared test with Yates' continuity correction,0.00859375,0.9261,ns,18.0,15.0,,,,
+occ.e2s,Pearson's Chi-squared test with Yates' continuity correction,1.270741758,0.2596,ns,18.0,15.0,,,,
+lat.e2,Wilcoxon rank sum exact test,149.0,0.63,ns,18.0,15.0,152.7,22.5,147.6,31.6
+lat.e2p,Wilcoxon rank sum exact test,155.0,0.486,ns,18.0,15.0,143.7,23.1,133.3,30.8
+lat.e2s,Wilcoxon rank sum test with continuity correction,124.0,0.7029,ns,18.0,15.0,262.7,31.9,282.4,42.4
+lat.e2sp,Wilcoxon rank sum exact test,134.0,0.9858,ns,18.0,15.0,253.7,32.2,268.1,44.2
+num.e2,Wilcoxon rank sum test with continuity correction,116.0,0.5016,ns,18.0,15.0,6.1,1.0,6.7,1.0
+num.e2s,Wilcoxon rank sum test with continuity correction,156.5,0.4293,ns,18.0,15.0,2.0,0.4,1.5,0.4
+sum.e2,Wilcoxon rank sum exact test,167.0,0.2586,ns,18.0,15.0,145.7,30.7,88.0,22.7
+sum.e2s,Wilcoxon rank sum test with continuity correction,174.0,0.162,ns,18.0,15.0,134.1,31.1,74.2,22.8
+mean.e2,Wilcoxon rank sum exact test,164.0,0.1563,ns,18.0,14.0,36.5,10.3,12.5,3.4
+mean.e2t,Wilcoxon rank sum exact test,172.0,0.0839,ns,18.0,14.0,38.2,10.5,12.9,3.4
+mean.e2s,Wilcoxon rank sum exact test,96.0,0.421,ns,16.0,10.0,76.4,16.2,45.3,6.6
+mean.e2st,Wilcoxon rank sum test with continuity correction,114.5,0.3348,ns,17.0,11.0,,,,
+max.e2,Wilcoxon rank sum exact test,154.0,0.3008,ns,18.0,14.0,85.6,18.2,50.1,13.1
+occ.f,Pearson's Chi-squared test with Yates' continuity correction,0.48125,0.4879,ns,18.0,15.0,,,,
+num.f,Wilcoxon rank sum test with continuity correction,162.0,0.2616,ns,18.0,15.0,0.8,0.3,0.3,0.2
+sum.f,Wilcoxon rank sum test with continuity correction,163.0,0.2486,ns,18.0,15.0,30.8,11.5,13.4,7.7
+mean.f,Wilcoxon rank sum exact test,17.0,0.9333,ns,8.0,4.0,51.3,16.8,44.1,21.5
+occ.g,Pearson's Chi-squared test with Yates' continuity correction,0.025275735,0.8737,ns,18.0,15.0,,,,
+num.g,Wilcoxon rank sum test with continuity correction,135.0,1.0,ns,18.0,15.0,0.9,0.3,0.8,0.2
+sum.g,Wilcoxon rank sum test with continuity correction,119.0,0.5465,ns,18.0,15.0,20.8,8.4,25.8,9.5
+mean.g,Wilcoxon rank sum exact test,25.0,0.5054,ns,8.0,8.0,24.7,8.0,35.1,8.4
+occ.w11,,,,,,,,,,
+lat.w11p,Wilcoxon rank sum exact test,123.0,0.6816,ns,18.0,15.0,471.0,2.4,465.7,6.3
+num.w11,Wilcoxon rank sum test with continuity correction,135.0,,,18.0,15.0,0.0,0.0,0.0,0.0
+sum.w11,Wilcoxon rank sum test with continuity correction,135.0,,,18.0,15.0,0.0,0.0,0.0,0.0
+mean.w11,,,,,,,,,,
+occ.w12,,,,,,,,,,
+lat.w12p,Wilcoxon rank sum exact test,123.0,0.6816,ns,18.0,15.0,471.0,2.4,465.7,6.3
+num.w12,Wilcoxon rank sum test with continuity correction,135.0,,,18.0,15.0,0.0,0.0,0.0,0.0
+sum.w12,Wilcoxon rank sum test with continuity correction,135.0,,,18.0,15.0,0.0,0.0,0.0,0.0
+mean.w12,,,,,,,,,,

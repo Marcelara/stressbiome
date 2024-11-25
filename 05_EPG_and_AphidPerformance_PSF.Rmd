@@ -57,6 +57,12 @@ br_time <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_
 #EPG data - variables
 br_var <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_variables_0-8h.csv", header=TRUE)
 
+#EPG data - epg table separated
+br_table <- read.csv("./epg_data/Riviera comparison 8 hours/Rivera_Comparison_8_hours_epgtable_0-8_modified_split_by_column.csv", header=TRUE)
+
+#EPG data - epg table original
+br_table.o <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_epgtable_0-8h_modified.csv", header=TRUE)
+
 ```
 
 #cleaning
@@ -114,9 +120,9 @@ riv_pathway <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == 
          geom_point(size=3)+
           geom_ribbon(aes(ymin = mean_time - se, ymax = mean_time + se, fill = group), # Shaded error area
               alpha = 0.2, color = NA) + 
-         scale_color_manual(values= c("#BFBFBF", "#4472C4"))+
-         scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
-         #ylim(0,60)+
+         scale_color_manual(values= c("#BFBFBF", "#319B67"))+
+         scale_fill_manual(values= c("#BFBFBF", "#319B67"))+
+         ylim(0,80)+
          axis_looks+
         theme(legend.position="none")+
          labs(y="Time in pathway (%)", x="Time (h)")
@@ -146,9 +152,9 @@ riv_phloem <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == "
          geom_point(size=3)+
           geom_ribbon(aes(ymin = mean_time - se, ymax = mean_time + se, fill = group), # Shaded error area
               alpha = 0.2, color = NA) + 
-         scale_color_manual(values= c("#BFBFBF", "#4472C4"))+
-         scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
-         ylim(0,60)+
+         scale_color_manual(values= c("#BFBFBF", "#319B67"))+
+         scale_fill_manual(values= c("#BFBFBF", "#319B67"))+
+         ylim(0,80)+
          axis_looks+
         theme(legend.position="none")+
          labs(y="Time phloem feeding (%)", x="Time (h)")
@@ -359,9 +365,86 @@ wilcox  <- phloem %>%
 #get summary
 car::Anova(lm, type="III", test.statistic="F")
 
+```
+
+
+```{r}
+
+
+pathway <- time %>%  
+           filter(wavename %in% c("pathway"))
+
+table(pathway$id_rec, pathway$hour)
+
+library(ez)
+
+results <- ezANOVA(
+  data = pathway,
+  dv = perc,
+  wid = hour,
+  within = .(group)
+)
+
+print(results)
+
+phloem <- time %>%  
+           filter(wavename %in% c("phloem feeding"))
+
+table(phloem$id_rec, phloem$hour)
+
+
+results <- ezANOVA(
+  data = phloem,
+  dv = perc,
+  wid = hour,
+  within = .(group)
+)
+
+print(results)
+
+install.packages("lme4")
+
+library(lme4)
+library(lmerTest)
+
+lme_model.phloem <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = phloem)
+simulateResiduals(lme_model.phloem, plot=T) # not ok
+summary(lme_model.phloem )
+anova(lme_model.phloem )
+
+lme_model.pathway <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = pathway)
+summary(lme_model.pathway)
+anova(lme_model.pathway)
+
+
+phloem$perc <- (phloem$perc/100) * 0.99+0.005
+
+lme_model.phloem <- glmmTMB(perc ~ group * hour + (1|id_rec),
+                          family= binomial(link = "logit"),
+                          data = phloem)
+
+simulateResiduals(lme_model.phloem, plot=T) # not ok
+summary(lme_model.phloem )
+anova(lme_model.phloem)
+
+lme_model.pathway <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = pathway)
+summary(lme_model.pathway)
+anova(lme_model.pathway)
+
+
+
+library(glmmTMB)
+
+glmm_model <- glmmTMB(perc ~ group * hour + (1|id_rec),
+                          family= nbinom2,
+                          data = phloem)
 
 
 ```
+
+
+
+
 
 ```{r}
 save.image("./R_Environments/EPG/EPG.Rdata ")
