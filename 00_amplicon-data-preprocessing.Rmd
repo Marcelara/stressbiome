@@ -271,10 +271,10 @@ View(sample_data(ps_16S))
 ps_16S_raw <- ps_16S
 
 #save ps_16S
-save(ps_16S_raw, file = "./amplicon_data/Phyloseq_objects/ps_16S_raw.RData")
+#save(ps_16S_raw, file = "./amplicon_data/Phyloseq_objects/ps_16S_raw.RData")
 
 #clean to not have it twice
-rm(tree, otu, taxtab, refseq, metadata, ps_16S)
+rm(tree, otu, taxtab, refseq, metadata)
 
 ```
 
@@ -426,10 +426,10 @@ ps_16S #64,238 taxa
 #  ggtitle("Mitochondria contamination")
 
 #ggsave("Bac.Mitochondria-contam.png", path = "./Plots/00_amplicon_preprocessing/",
-         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
+#         width = 40, height = 20 , units = "in", dpi=300, scale=0.5)
 
 #clean 
-rm(p_Chloro, p_Mito)
+#rm(p_Chloro, p_Mito)
 
 ```
 * Phyto experiment has overall more plastid contamination than insect experiment (or maybe the same as they have less number of reads)
@@ -458,7 +458,7 @@ hist(sample_sums(host_plant_ps)/sample_sums(ps_16S)*100, breaks = 100) #from 0 t
 # define host plant 16S contamination as metadata
 ps_16S@sam_data$Mitochondria_reads<-sample_sums(Mitochondria_ps)
 ps_16S@sam_data$Chloroplast_reads<-sample_sums(Chloroplast_ps)
-ps_16S@sam_data$Plastid_reads<-sample_sums(host_plant_ps)
+ps_16S@sam_data$Plastid_reads<-sample_sums(host_plant_ps) #both
 ps_16S@sam_data$Plastid_contamination_pct<-sample_sums(host_plant_ps)/sample_sums(ps_16S)*100
 
 #Remove plastid ASVs
@@ -535,6 +535,26 @@ ps_16S@sam_data$libsize_after_filtering <- sample_sums(ps_16S)
 #add how many reads were kept at the end
 ps_16S@sam_data$pct_reads_kept <- ((ps_16S@sam_data$libsize_after_filtering/ps_16S@sam_data$total_reads)*100)
 
+#get summary info per experiment
+reads_summary <- ps_16S@sam_data %>% 
+                 data.frame() %>% 
+                 group_by(Experiment)%>%
+                 summarise(reads_per_sample = mean(libsize_after_filtering),
+                           stdev=sd(libsize_after_filtering),
+                           reads_kept_perc= mean(pct_reads_kept),
+                           stdev_perc=sd(pct_reads_kept))
+
+#get summary info per treatment & experiment
+reads_summary.t <- ps_16S@sam_data %>% 
+                    data.frame() %>% 
+                    group_by(Experiment, plant_pathway_induced)%>%
+                    summarise(reads_per_sample = mean(libsize_after_filtering),
+                           stdev=sd(libsize_after_filtering),
+                           reads_kept_perc= mean(pct_reads_kept),
+                           stdev_perc=sd(pct_reads_kept),
+                           n=n())
+
+
 #check
 hist(ps_16S@sam_data$pct_reads_kept)
 
@@ -544,7 +564,14 @@ Now, save a split ps by experiment
 ```{r }
 
 #as they come from independent experiments, separate them to filter them independently
-ps_16S_split <- phyloseq_sep_variable(ps_16S, variable="Experiment", drop_zeroes = T)
+ps_16S_split <- phyloseq_sep_variable(ps_16S, variable=c("Experiment"), drop_zeroes = T)
+
+
+ps_Insects <- phyloseq_sep_variable(ps_16S_split$cond_real_insects, variable=c("plant_pathway_induced"), drop_zeroes = T)
+
+
+#check how many ASVs per experiment
+nASVs <- lapply(ps_16S_split, function(ps){ntaxa(ps)})
 
 #plot histograms
 lapply(ps_16S_split, function(ps){
@@ -620,7 +647,7 @@ ps_16S #61,295
 save(ps_16S, file = "./amplicon_data/Phyloseq_objects/ps_16S.RData")
 
 #clean
-rm.all.but(keep=c("ps_16S", "ps_16S_split"), keep_functions = TRUE)
+rm.all.but(keep=c("ps_16S", "ps_16S_split", "ps_Phyto", "ps_Insects"), keep_functions = TRUE)
 
 ```
 
@@ -858,7 +885,7 @@ ps_ITS_raw <- ps_ITS
 save(ps_ITS_raw, file = "./amplicon_data/Phyloseq_objects/ps_ITS_raw.RData")
 
 #clean
-rm.all.but(keep=c("ps_16S", "ps_16S_split", "ps_ITS_raw"), keep_functions = TRUE)
+rm.all.but(keep=c("ps_16S", "ps_16S_split", "ps_ITS_raw", "ps_Phyto", "ps_Insects", "ps_ITS"), keep_functions = TRUE)
 
 
 ```
@@ -867,7 +894,7 @@ rm.all.but(keep=c("ps_16S", "ps_16S_split", "ps_ITS_raw"), keep_functions = TRUE
 ```{r}
 
 #call it back ps_ITS to start filering and keep the 'raw' version untouched
-ps_ITS <- ps_ITS_raw
+#ps_ITS <- ps_ITS_raw
 
 #quick check on the number of reads 
 sums <- sample_sums(ps_ITS)
@@ -1197,7 +1224,7 @@ ps_ITS <- subset_samples(ps_ITS, sample_or_blank != "blank")
 sort(sample_sums(ps_ITS))
 plot(sort(sample_sums(ps_ITS))) #lot's with very few reads 
 
-#remove samples with low number of reads, removing those with less than 9,500 reads
+#remove samples with low number of reads, removing those with less than 10,000 reads
 ps_ITS <- subset_samples(ps_ITS, libsize_after_nonFungi > 10000) 
 
 #check number of reads 
@@ -1218,9 +1245,30 @@ ps_ITS@sam_data$libsize_after_filtering <- sample_sums(ps_ITS)
 plot(sort(ps_ITS@sam_data$libsize_after_filtering))
 
 #make new column with the percentage of how many reads were kept 
-ps_ITS@sam_data$pct_reads_kept <- ((ps_ITS@sam_data$libsize_after_filtering/ps_ITS@sam_data$libsize_after_nonFungi)*100)
+ps_ITS@sam_data$pct_reads_kept <- ((ps_ITS@sam_data$libsize_after_filtering/ps_ITS@sam_data$total_reads)*100)
 
 plot(sort(ps_ITS@sam_data$pct_reads_kept)) #lowest is 63%
+
+
+#get summary info per experiment
+reads_summary.f <- ps_ITS@sam_data %>% 
+                 data.frame() %>% 
+                 group_by(Experiment)%>%
+                 summarise(reads_per_sample = mean(libsize_after_filtering),
+                           stdev=sd(libsize_after_filtering),
+                           reads_kept_perc= mean(pct_reads_kept),
+                           stdev_perc=sd(pct_reads_kept),
+                           n=n())
+
+#get summary info per treatment & experiment
+reads_summary.f.t <- ps_ITS@sam_data %>% 
+                    data.frame() %>% 
+                    group_by(Experiment, plant_pathway_induced)%>%
+                    summarise(reads_per_sample = mean(libsize_after_filtering),
+                           stdev=sd(libsize_after_filtering),
+                           reads_kept_perc= mean(pct_reads_kept),
+                           stdev_perc=sd(pct_reads_kept),
+                           n=n())
 
 
 #save ps_ITS finally
@@ -1233,6 +1281,8 @@ Now, split by experiment as for bacteria
 
 #as they come from independent experiments, separate them to filter them independently
 ps_ITS_split <- phyloseq_sep_variable(ps_ITS, variable="Experiment", drop_zeroes = T)
+
+ps_Phyto <- phyloseq_sep_variable(ps_ITS_split$cond_phytohormones, variable=c("plant_pathway_induced"), drop_zeroes = T)
 
 #plot histograms
 lapply(ps_ITS_split, function(ps){
