@@ -477,13 +477,15 @@ dev.off()
 #---- Phyto ----
 phyto <- subset(feedback, Experiment == "simulated")
 
-x<- mean(phyto$shoot_biomass_mg)
+#quick summary
+phyto %>% group_by(Experiment, soil_inocula) %>% summarise(n=n()) #not balanced
 
 #with interaction
-lm <- lm(shoot_biomass_mg ~ soil_inocula*herbivory,
-         data=phyto)
+lm <- glm(shoot_biomass_mg ~ soil_inocula*herbivory,
+          family=gaussian,
+          data=phyto)
 
-car::Anova(lm, type="II", test.statistic="F")
+lm.anova <- car::Anova(lm, type="III", test.statistic="LR")
 simulateResiduals(lm, plot=T) #ok
 
 
@@ -491,12 +493,12 @@ simulateResiduals(lm, plot=T) #ok
 emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
 
 #Save tables 
-. <- c("Soil inocula (S)", "Herbivory (H)", "S*H", "Residuals")
-lm_table <- cbind (., as.data.frame(Anova(lm)))
-lm_table$`Pr(>F)` <- round(lm_table$`Pr(>F)`, 3)
+. <- c("Soil inocula (S)", "Herbivory (H)", "S*H")
+lm_table <- cbind (., as.data.frame(lm.anova))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
 table <- nice_table(lm_table,
-              title = c("Table X. Linear Model for plant biomass in Feedback phase - Phyto"),
-              note = "shoot_biomass_mg  ~ soil_inocula*herbivory")
+              title = c("Table X. GLM for plant biomass in Feedback phase - Phyto"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory, GLM-Gaussian")
 
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
@@ -506,10 +508,11 @@ flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/feedback_lm_bio
 #---- Insects ----
 insects <- subset(feedback, Experiment == "real_insects")
 
-lm.i <- lm(shoot_biomass_mg ~ soil_inocula*herbivory,
-         data=insects)
+lm.i <- glm(shoot_biomass_mg ~ soil_inocula*herbivory,
+            family=gaussian,
+            data=insects)
 
-car::Anova(lm.i, type="II", test.statistic="F")
+lm.i.anova <- car::Anova(lm.i, type="III", test.statistic="LR")
 simulateResiduals(lm.i, plot=T) #ok
 
 #pairiwse differences
@@ -517,10 +520,10 @@ emmeans_herb <- emmeans(lm.i, pairwise~herbivory) #differences between NI and ca
 
 #insects
 lm.i_table <- cbind (., as.data.frame(Anova(lm.i)))
-lm.i_table$`Pr(>F)` <- round(lm.i_table$`Pr(>F)`, 3)
+lm.i_table$`Pr(>Chisq)` <- round(lm.i_table$`Pr(>Chisq)`, 3)
 table <- nice_table(lm.i_table,
-              title = c("Table X. Linear Model for plant biomass in Feedback phase - Insects"),
-              note = "shoot_biomass_mg  ~ soil_inocula*herbivory")
+              title = c("Table X. GLM for plant biomass in Feedback phase - Insects"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory, GLM-Gaussian")
 
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
