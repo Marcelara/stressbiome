@@ -31,7 +31,7 @@ library(plotrix) #stderror
 ```{r}
 
 theme_set(theme_bw())
-color_stress <- c("#BFBFBF", "#4472C4")
+color_stress <- c("#BFBFBF", "#319B67")
 
 # Set default axis looks
 axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
@@ -52,39 +52,63 @@ aphid <- read_xlsx("./plant_data/raw_data/EPG/Aphid_population_adjusted.xlsx")
 plant <- read_xlsx("./plant_data/raw_data/EPG/Plant performance.xlsx")
 
 #EPG data - time 
-br_time <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_timebins_0-8h.csv", header=TRUE)
+#br_time <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_timebins_0-8h.csv", header=TRUE)
+br_time <- read.csv("./epg_data/Output/Rivera_timebins_0-8h.csv")
 
 #EPG data - variables
-br_var <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_variables_0-8h.csv", header=TRUE)
+#br_var <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_variables_0-8h.csv", header=TRUE)
+br_table <- read.csv("./epg_data/Output/Rivera_epgtable_0-8h.csv")
 
-#EPG data - epg table separated
-br_table <- read.csv("./epg_data/Riviera comparison 8 hours/Rivera_Comparison_8_hours_epgtable_0-8_modified_split_by_column.csv", header=TRUE)
+#Variables
+br_var <- read.csv("./epg_data/Output/Rivera_variables_0-8h.csv")
 
-#EPG data - epg table original
-br_table.o <- read.csv("./epg_data/Riviera comparison 8 hours/Riviera_Comparison_8_hours_epgtable_0-8h_modified.csv", header=TRUE)
 
 ```
 
-#cleaning
+#cleaning df
 ```{r}
-#remove 'file' column
-br_time <- as.data.frame(br_time)
-br_time[2] <- NULL
-br_time <- br_time %>% mutate(plant_species="Bole_Riv")
 
-time <- br_time 
+#Get info from file name
+br_time2 <- br_time %>% 
+            tidyr::separate(file, into = c("folder_path", "file_details"), sep = "Raw_data\\\\", remove = FALSE)
 
-#change to factors
-str(time)
-time$id_rec <- as.factor(time$id_rec)
-time$group <- as.factor(time$group)
-time$wave <- as.factor(time$wave)
-time$wavename <- as.factor(time$wavename)
-time$hour <- as.factor(time$hour)
+br_time3 <- br_time2 %>% 
+            tidyr::separate(file_details, into = c("group_file", "rest"), sep = "/", remove = FALSE)
+
+br_time4 <- br_time3 %>% tidyr::extract(
+    rest,                       # Column to extract from
+    into = c("day", "system", "channel"),  # New column names
+    regex = "(\\d+)_syst(\\d+)_.*ch(\\d+)", # Regular expression to match the parts
+    remove = FALSE                   # Keep the original column if needed
+  )
+
+br_time5 <- br_time4 %>% dplyr::select(-file, -folder_path,  -file_details, -group_file,  -rest) #ok now
+br_time_ori <- br_time
+br_time <- br_time5
+
+#delete other df's
+rm(br_time2, br_time3, br_time4, br_time5)
+
+#make factors
+br_time[ ,1:8] <- lapply(br_time[ ,1:8], as.factor)
+str(br_time)
+
+#make a new column named batch based on day
+br_time2 <- br_time %>% 
+           mutate(batch= case_when(
+                    day %in% c("1", "2", "3", "4") ~ "batch_1",
+                    day %in% c("5", "6", "7", "8") ~ "batch_2"))
+time <- br_time2
+
+#make new column a factor
+time$batch <- as.factor(time$batch)
 
 #check
 head(time)
 str(time)
+summary(time)
+
+x <- time %>% group_by(group, batch, wavename) %>% summarise(n=n())
 
 #check levels
 levels(time$wavename)
@@ -94,6 +118,13 @@ levels(time$wave)
 levels(time$hour) #hours recording
 levels(time$group)
 
+
+#save as .rds data 
+saveRDS(time, file="./Data/EPG_data/EPG_time.rds")
+write.csv(time, file="./Data/EPG_data/csv/EPG_time.csv")
+
+
+
 ```
 
 #Plots
@@ -102,18 +133,17 @@ levels(time$group)
 ```{r}
 #Time spent on Phloem feeding & Pathway
 
-
 #make a summary df only selecting for phloem feeding and pathway 
 summary <- time %>%  
            filter(wavename %in% c("phloem feeding", "pathway", "xylem ingestion")) %>% 
-           group_by(plant_species, wavename, hour, group) %>%
+           group_by(wavename, hour, group) %>%
            summarise(mean_time=mean(perc),
                      sd=sd(perc),
                      se=std.error(perc)) #from plotrix::std.error()
 
 # Pathway ====
 
-riv_pathway <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == "pathway"),
+riv_pathway <- ggplot(subset(summary, wavename == "pathway"),
                    aes(x=hour, y=mean_time, color=group, group=group))+
     #geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
          geom_line(stat="identity", linewidth=0.9)+
@@ -145,7 +175,7 @@ x=c("time_pathway.svg",
 
 # Phloem ====
 
-riv_phloem <- ggplot(subset(summary, plant_species == "Bole_Riv" & wavename == "phloem feeding"),
+riv_phloem <- ggplot(subset(summary, wavename == "phloem feeding"),
                    aes(x=hour, y=mean_time, color=group, group=group))+
     #geom_errorbar(aes(ymin=mean_time-se, ymax=mean_time+se), size=0.8, width=.2)+
          geom_line(stat="identity", linewidth=0.9)+
@@ -283,7 +313,7 @@ riv_shoot <- ggplot(subset(plant, Soil_species == "Bole_Riv"),
               position = position_jitterdodge(jitter.height = .1, jitter.width = .2))+
          scale_fill_manual(values= c("#BFBFBF", "#4472C4"))+
          scale_x_discrete(labels=c("Ctr" = "Control-inocula", "SA" = "SA-inocula"))+
-  #ylim(0,60)+
+  ylim(0,650)+
          axis_looks+
   theme(legend.position="none")+
   labs(y="Shoot biomass (mg)", x="")
@@ -319,6 +349,8 @@ aphid
 
 #subset to Rivera
 Riv <- subset(aphid, Soil_species == "Riv")
+Riv %>% group_by(Soil_stress) %>% summarise(n=n()) #not balanced
+
 
 glm <- glm(aphids_14dpi ~ Soil_stress,
               family=Gamma(link="log"),
@@ -328,49 +360,224 @@ glm <- glm(aphids_14dpi ~ Soil_stress,
 simulateResiduals(glm, plot=T) #ok
 
 #get summary
-car::Anova(glm, type="II", test.statistic="F")
+number_glm <- car::Anova(glm, type="III", test.statistic="LR")
+
 
 #Plant biomass ====
 biomass <- subset(plant, Soil_species == "Bole_Riv")
+biomass %>% group_by(Soil_stress) %>% summarise(n=n()) #not balanced
 
-lm <- lm(`Plant weight` ~ Soil_stress, 
-         data=biomass)
+
+lm <- glm(`Plant weight` ~ Soil_stress, 
+          family=gaussian,
+          data=biomass)
 
 #check
 simulateResiduals(lm, plot=T) #ok
 
 #get summary
-car::Anova(lm, type="III", test.statistic="F")
+biomass_table <- car::Anova(lm, type="III", test.statistic="LR")
 
 #Phloem feeding time ====
 time_df <- time %>%  
-           filter(wavename %in% c("phloem feeding", "pathway", "xylem ingestion"))
+           filter(wavename %in% c("phloem feeding", "pathway"))
 
 phloem <- time_df %>% filter(wavename == "phloem feeding")
+phloem %>% group_by(group) %>% summarise(n=n()) #not balanced
+
+hist(phloem$perc) #lot's of zero's
+
+#---- Option with ZeroInflated ---- 
+#when you have zero-inflated data (use pscl package)
+library(pscl)
+phloem$perc <- as.integer(phloem$perc) #pscl requires integer instead of numeric
+
+m1 <- zeroinfl(perc ~ group * hour| id_rec, data = phloem)
+m1_table <- car::Anova(m1, type="III", test.statistic="Chisq")
+
+#check assumptions
+# H0 hypothesis: Does model1 explain the same amount of variation as model0? If P value < 0.05, then answer is: No, model1 is different from model0 and thus a valid model!
+mnull <- update(m1, . ~ 1) #null model
+pchisq(2 * (logLik(m1) - logLik(mnull)), df = 3, lower.tail = FALSE) #Chi-Sqr test, p is < 0.05 so ok
+
+#emmeans
+emmeans<- emmeans(m1, pairwise~ group | hour,
+                  adjust="FDR") 
+plot(emmeans)
+summary(emmeans$contrasts, infer = TRUE) #contrast by hour
+
+#---- Optiom with glmer and poisson (best so far) ----
+phloem.poiss <- glmer(perc ~ group*hour + (1|id_rec), 
+               family = poisson, 
+               data = phloem)
+
+#simulateResiduals(phloem.poiss, plot=T) #not the best
+car::Anova(poss, type="III", test.statistic="Chisq")
+
+emmeans<- emmeans(phloem.poiss , pairwise~ group | hour,
+                  adjust="FDR") 
+plot(emmeans)
+
+#---- Option with glmmTMB (not working) ----
+library(glmmTMB)
+
+m2 <- glmmTMB(
+  perc ~ hour + group + (1 | id_rec), # Count process with random intercept
+  zi = ~ 1,               # Zero-inflation process
+  family = nbinom2,       # Use Poisson (or try `nbinom2` for overdispersion)
+  data = phloem,
+  verbose=TRUE)
+
+summary(m2)
+
+x <- glm(log(perc) ~ group, 
+          family=Gamma,
+          data=phloem)
+
+#---- Option with lmer (not working, not linear) ----
+
+library(lme4)
+library(lmerTest)
+
+lme_model.phloem <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = phloem)
+simulateResiduals(lme_model.phloem, plot=T) # not ok
+summary(lme_model.phloem )
+anova(lme_model.phloem )
+
+lme_model.pathway <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = pathway)
+summary(lme_model.pathway)
+anova(lme_model.pathway)
 
 
-model <- lm(mean ~ group*hour,
-            data = phloem)
+phloem$perc <- (phloem$perc/100) * 0.99+0.005
 
-#check
-simulateResiduals(model, plot=T) # not ok
+lme_model.phloem <- glmmTMB(perc ~ group * hour + (1|id_rec),
+                          family= binomial(link = "logit"),
+                          data = phloem)
+
+simulateResiduals(lme_model.phloem, plot=T) # not ok
+summary(lme_model.phloem )
+anova(lme_model.phloem)
+
+lme_model.pathway <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = pathway)
+summary(lme_model.pathway)
+anova(lme_model.pathway)
+
+#---- Option with wilxocon test, nothing is significant (??) ----
 
 #using wilcoxon test
 library(broom)
 wilcox  <- phloem %>%
   group_by(hour) %>%
-  do(tidy(wilcox.test(perc ~ group, data = .))) #not working 
+  do(tidy(wilcox.test(perc ~ group, data = .))) 
+
+one <- phloem %>% subset(hour %in% "1")
+wilcox.test(perc ~ group, exact = TRUE, data=one)
+
+five <- phloem %>% subset(hour %in% "5")
+wilcox.test(perc ~ group, exact = TRUE, data=five)
 
 
-#get summary
-car::Anova(lm, type="III", test.statistic="F")
+
+#Pathway time ====
+pathway <- time_df %>% filter(wavename == "pathway")
+pathway %>% group_by(group) %>% summarise(n=n()) #not balanced
+
+hist(pathway$perc) #lot's of zero's also
+
+#Option with ZeroInflated ====
+
+pathway$perc <- as.integer(pathway$perc) #pscl requires integer instead of numeric
+
+m1 <- zeroinfl(perc ~ group * hour| id_rec, data = phloem)
+m1_table <- car::Anova(m1, type="III", test.statistic="Chisq")
+
+
+#Option with Poisson ====
+library(lme4)
+path.poss <- glmer(perc ~ group*hour + (1|id_rec), 
+               family = poisson, 
+               data = pathway)
+
+car::Anova(path.poss, type="III", test.statistic="Chisq")
+
+emmeans<- emmeans(path.poss, pairwise ~ group | hour,
+                  adjust="FDR") 
+plot(emmeans)
+
+#check
+simulateResiduals(poss, plot=T) #ok
 
 ```
 
 
+
+```{r Pathway; Stats}
+
+#Pathway time ====
+pathway <- time %>% filter(wavename == "pathway") %>% as.data.frame()
+pathway %>% group_by(group) %>% summarise(n=n()) #not balanced
+str(pathway)
+pathway$perc <- as.numeric(pathway$perc)
+
+#there is a conflict with lme4 package, you have to re-start R and just load lme4, Matrix and emmeans 
+library(lme4)
+library(Matrix)
+library(emmeans)
+library(pscl)
+library(lmerTest)
+
+#run lmer
+lme_model.pathway <- lmerTest::lmer(perc ~ group * hour + (1|id_rec) + (1|batch), data = pathway)
+lme_model.pathway.NoBatch <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = pathway)
+anova(lme_model.pathway, lme_model.pathway.NoBatch)  # Compare models, without batch is lower, so let's remove Batch
+
+#summary
+anova(lme_model.pathway.NoBatch)
+
+#checking assumptions
+residuals_lme <- residuals(lme_model.pathway.NoBatch)
+plot(residuals_lme) #ok
+qqnorm(residuals_lme) #ok
+qqline(residuals_lme, col = "red") #ok
+hist(residuals_lme, breaks = 20, main = "Histogram of Residuals") #there's a bi-modal shape
+
+#let's see if transforming the data improves
+#transform data
+pathway$perc_log <- log(pathway$perc + 1)
+pathway$perc_sqrt <- sqrt(pathway$perc)
+
+#run lme again
+# Refit the model with the transformed response
+lme_model_log <- lmer(perc_log ~ group * hour + (1 | id_rec), data = pathway)
+lme_model_sqrt <- lmer(perc_sqrt ~ group * hour + (1 | id_rec), data = pathway)
+
+# Compare residuals
+par(mfrow = c(1, 2))
+hist(residuals(lme_model_log), main = "Log Transformed Residuals")
+hist(residuals(lme_model_sqrt), main = "Sqrt Transformed Residuals") #yes!
+dev.off()
+
+#check again
+residuals_lme <- residuals(lme_model_sqrt)
+plot(residuals_lme)
+qqnorm(residuals_lme)
+qqline(residuals_lme, col = "red")
+hist(residuals_lme, breaks = 20, main = "Histogram of Residuals") #bell-shaped now
+boxplot(residuals_lme, main = "Boxplot of Residuals") #no outliers
+
+#final summary
+anova(lme_model_sqrt) #Satterthwaite's F test is prefered for fixed effects in LMMs
+
+#post-hoc
+emmeans(lme_model_sqrt, pairwise ~ group | hour, adjust="FDR") #ok
+
+```
+
+
+
+
 ```{r}
-
-
 pathway <- time %>%  
            filter(wavename %in% c("pathway"))
 
@@ -391,7 +598,6 @@ phloem <- time %>%
            filter(wavename %in% c("phloem feeding"))
 
 table(phloem$id_rec, phloem$hour)
-
 
 results <- ezANOVA(
   data = phloem,
@@ -430,7 +636,7 @@ anova(lme_model.phloem)
 lme_model.pathway <- lmerTest::lmer(perc ~ group * hour + (1|id_rec), data = pathway)
 summary(lme_model.pathway)
 anova(lme_model.pathway)
-
+ 
 
 
 library(glmmTMB)
@@ -438,6 +644,8 @@ library(glmmTMB)
 glmm_model <- glmmTMB(perc ~ group * hour + (1|id_rec),
                           family= nbinom2,
                           data = phloem)
+
+
 
 
 ```

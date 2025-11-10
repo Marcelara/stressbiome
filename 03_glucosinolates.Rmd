@@ -177,14 +177,6 @@ conditioning_gluco <- gluco %>%
                       dplyr::filter(Phase == "conditioning")%>%
                       dplyr::select(-ends_with('4OHI3M')) #mostly 0's
 
-```
-
-*Now I have 3 df, gluco, conditioning_long and conditioning_gluco 
-
-
-###Plot indolic, aliphatic and total
-```{r}
-
 #first filter by those glucosinolates
 long_cond <- conditioning_long %>% filter(
   glucosinolate %in% c("Glu_alyphatic","Glu_indolic")&
@@ -198,6 +190,16 @@ df_GLS_p <- long_cond %>%
     mean = mean(concentration, na.rm = TRUE),
     sd = sd(concentration, na.rm = TRUE)) %>%
     mutate(se = sd/sqrt(n))
+
+```
+
+*Now I have 3 df, gluco, conditioning_long and conditioning_gluco 
+
+
+###Plot indolic, aliphatic and total
+```{r}
+
+
 
 #Finally, plot it
 ggplot(data = df_GLS_p,
@@ -234,6 +236,81 @@ x=c("cond_barplot_aliphatic_indolic.svg",
 * Values look similar between experiments in the conditioning phase
 * There are slightly less replicates for SA
 
+###Stats per GLS
+
+
+```{r}
+
+#Phyto
+phyto.i <- subset(long_cond, Experiment == "simulated" & glucosinolate == "Glu_alyphatic")
+
+phyto.i %>% group_by(Experiment, plant_pathway_induced) %>% summarise(n=n()) #balanced N=4
+
+lm <- glm(log(concentration) ~ plant_pathway_induced,
+          family=gaussian,
+          data=phyto.i)
+
+lm_table <- car::Anova(lm, type="II", test.statistic="LR")
+simulateResiduals(lm, plot=T) #ok
+
+#save result
+. <- c("Treatment(T)", "Glucosinolate(G)", "T*G")
+lm_table <- cbind (., as.data.frame(lm_table))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. GLM for GLS in conditioning phase - Phyto"),
+              note = "~ Treatment*glucosinolate type, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/conditioning_phyto.docx")
+
+#emeans
+emmeans <- emmeans(lm, ~plant_pathway_induced)
+pair <- contrast(emmeans, method="pairwise", adjust="bonferroni")
+cld <- cld(emmeans, Letters="letters", adjust="tukey")
+
+
+
+
+#Insects
+#Phyto
+insects <- subset(long_cond, Experiment == "real_insects" & glucosinolate == "Glu_indolic")
+insects %>% group_by(plant_pathway_induced) %>% summarise(n=n()) #balanced N=4
+
+
+lm <- glm(log(concentration) ~ plant_pathway_induced,
+          family=gaussian,
+         data=insects)
+
+#GLS
+lm_table <- car::Anova(lm, type="III", test.statistic="LR")
+simulateResiduals(lm, plot=T)
+
+#save result
+. <- c("Treatment(T)", "Glucosinolate(G)", "T*G")
+lm_table <- cbind (., as.data.frame(lm_table))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. GLM for GLS in conditioning phase - Insects"),
+              note = "~ Treatment*glucosinolate type, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/conditioning_insects.docx")
+
+
+#emmeans
+emmeans <- emmeans(lm, ~plant_pathway_induced)
+pair <- contrast(emmeans, method="pairwise", adjust="bonferroni")
+pair
+cld <- cld(emmeans, Letters="letters", adjust="tukey")
+cld
+
+```
+
 ###Stats
 
 ```{r}
@@ -241,25 +318,63 @@ x=c("cond_barplot_aliphatic_indolic.svg",
 #Phyto
 phyto <- subset(long_cond, Experiment == "simulated")
 
-lm <- lm(log(concentration) ~ plant_pathway_induced*glucosinolate,
+phyto %>% group_by(Experiment, plant_pathway_induced) %>% summarise(n=n()) #balanced N=8
+
+lm <- glm(log(concentration) ~ plant_pathway_induced*glucosinolate,
+          family=gaussian,
          data=phyto)
 
-car::Anova(lm, type="II", test.statistic="F")
-simulateResiduals(lm, plot=T)
+lm_table <- car::Anova(lm, type="II", test.statistic="LR")
+simulateResiduals(lm, plot=T) #ok
+
+#save result
+. <- c("Treatment(T)", "Glucosinolate(G)", "T*G")
+lm_table <- cbind (., as.data.frame(lm_table))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. GLM for GLS in conditioning phase - Phyto"),
+              note = "~ Treatment*glucosinolate type, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/conditioning_phyto.docx")
+
+#emeans
 emmeans <- emmeans(lm, ~plant_pathway_induced*glucosinolate)
 pair <- contrast(emmeans, method="pairwise", adjust="bonferroni")
 cld <- cld(emmeans, Letters="letters", adjust="tukey")
+
+
 
 
 #Insects
 #Phyto
 insects <- subset(long_cond, Experiment == "real_insects")
 
-lm <- lm(log(concentration) ~ plant_pathway_induced*glucosinolate,
+lm <- glm(log(concentration) ~ plant_pathway_induced*glucosinolate,
+          family=gaussian,
          data=insects)
 
-car::Anova(lm, type="II", test.statistic="F")
+#GLS
+lm_table <- car::Anova(lm, type="II", test.statistic="LR")
 simulateResiduals(lm, plot=T)
+
+#save result
+. <- c("Treatment(T)", "Glucosinolate(G)", "T*G")
+lm_table <- cbind (., as.data.frame(lm_table))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. GLM for GLS in conditioning phase - Insects"),
+              note = "~ Treatment*glucosinolate type, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/conditioning_insects.docx")
+
+
+#emmeans
 emmeans <- emmeans(lm, ~plant_pathway_induced*glucosinolate)
 pair <- contrast(emmeans, method="pairwise", adjust="bonferroni")
 pair
@@ -772,11 +887,13 @@ First for phyto
 
 #---- Phyto-Alyphatic ----
 phyto <- subset(feedback_long, Experiment == "simulated" & glucosinolate == "Glu_alyphatic")
+phyto %>% group_by(Experiment,soil_inocula,herbivory) %>% summarise(n=n()) #balanced
 
-lm.p.a <- lm(log(concentration) ~ soil_inocula*herbivory,
+lm.p.a <- glm(log(concentration) ~ soil_inocula*herbivory,
+              family=gaussian,
             data=phyto)
 
-car::Anova(lm.p.a, type="II", test.statistic="F")
+lm.p.a_table <- car::Anova(lm.p.a, type="II", test.statistic="LR")
 simulateResiduals(lm.p.a, plot=T) #ok
 
 #pairiwse differences
@@ -784,43 +901,45 @@ emmeans_herb <- emmeans(lm.p.a, pairwise~herbivory) #differences between NI and 
 cld(emmeans_herb$emmeans, adjust="tukey")
 
 #save result
-factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H", "Residuals")
-lm.p.a_table <- cbind (factors, as.data.frame(Anova(lm.p.a)))
-lm.p.a_table$`Pr(>F)` <- round(lm.p.a_table$`Pr(>F)`, 3)
+factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H")
+lm.p.a_table <- cbind (factors, as.data.frame(Anova(lm.p.a_table)))
+lm.p.a_table$`Pr(>Chisq)` <- round(lm.p.a_table$`Pr(>Chisq)`, 3)
 table <- nice_table(lm.p.a_table,
-              title = c("Table X. Linear Model for aliphatic GLS in Feedback phase - Phyto"),
-              note = "shoot_biomass_mg  ~ soil_inocula*herbivory")
+              title = c("Table X. GLM for aliphatic GLS in Feedback phase - Phyto"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory, GLM-Gaussian")
 
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
 
-flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_lm_aliGLS_phyto.docx")
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_aliGLS_phyto.docx")
 
 
 #---- Phyto-Indolic ----
 phyto_i <- subset(feedback_long, Experiment == "simulated" & glucosinolate == "Glu_indolic")
+phyto_i %>% group_by(Experiment,soil_inocula,herbivory) %>% summarise(n=n()) #balanced
 
-lm.p.i <- lm(log(concentration) ~ soil_inocula*herbivory,
+lm.p.i <- glm(log(concentration) ~ soil_inocula*herbivory,
+              family=gaussian,
          data=phyto_i)
 
-car::Anova(lm.p.i, type="II", test.statistic="F")
+lm.p.i_table <- car::Anova(lm.p.i, type="II", test.statistic="LR")
 simulateResiduals(lm.p.i, plot=T) #ok
 
 #pairiwse differences
 emmeans_soil <- emmeans(lm.p.i, pairwise~soil_inocula) #differences between Ctrl and SA
 
 #save result
-factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H", "Residuals")
-lm.p.i_table <- cbind (factors, as.data.frame(Anova(lm.p.i)))
-lm.p.i_table$`Pr(>F)` <- round(lm.p.i_table$`Pr(>F)`, 3)
+factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H")
+lm.p.i_table <- cbind (factors, as.data.frame(lm.p.i_table))
+lm.p.i_table$`Pr(>Chisq)` <- round(lm.p.i_table$`Pr(>Chisq)`, 3)
 table <- nice_table(lm.p.i_table,
-              title = c("Table X. Linear Model for indolic GLS in Feedback phase - Phyto"),
+              title = c("Table X. GLM for indolic GLS in Feedback phase - Phyto"),
               note = "~ soil_inocula*herbivory")
 
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
 
-flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_lm_indoGLS_phyto.docx")
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_indoGLS_phyto.docx")
 
 ```
 
@@ -828,55 +947,60 @@ For herbivore-infested experiment
 ```{r}
 #---- Insects-Alyphatic ----
 insects <- subset(feedback_long, Experiment == "real_insects" & glucosinolate == "Glu_alyphatic")
+insects %>% group_by(Experiment,soil_inocula,herbivory) %>% summarise(n=n()) #balanced
 
-lm.i.a <- lm(log(concentration) ~ soil_inocula*herbivory,
-         data=insects)
+lm.i.a <- glm(log(concentration) ~ soil_inocula*herbivory,
+              family=gaussian,
+              data=insects)
 
-car::Anova(lm.i.a, type="II", test.statistic="F")
+lm.i.a_table <- car::Anova(lm.i.a, type="II", test.statistic="LR")
 simulateResiduals(lm.i.a, plot=T) #ok
+
+#save result
+factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H")
+lm.i.a_table <- cbind (factors, as.data.frame(lm.i.a_table))
+lm.i.a_table$`Pr(>Chisq)` <- round(lm.i.a_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm.i.a_table,
+              title = c("Table X. GLM for aliphatic GLS in Feedback phase - Insects"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_aliGLS_insects.docx")
+
 
 #pairiwse differences
 emmeans_soil <- emmeans(lm.i.a, pairwise~soil_inocula) #differences between CTR and JA and SA
 emmeans_herb <- emmeans(lm.i.a, pairwise~herbivory)
 
-#save result
-factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H", "Residuals")
-lm.i.a_table <- cbind (factors, as.data.frame(Anova(lm.i.a)))
-lm.i.a_table$`Pr(>F)` <- round(lm.i.a_table$`Pr(>F)`, 3)
-table <- nice_table(lm.i.a_table,
-              title = c("Table X. Linear Model for aliphatic GLS in Feedback phase - Insects"),
-              note = "~ soil_inocula*herbivory")
-
-table <- table %>%
-         flextable::colformat_num(big.mark = "", digits = 3) 
-
-flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_lm_aliGLS_insects.docx")
-
 
 #---- Insects-Indolic ----
 insects_i <- subset(feedback_long, Experiment == "real_insects" & glucosinolate == "Glu_indolic")
+insects_i %>% group_by(Experiment,soil_inocula,herbivory) %>% summarise(n=n()) #balanced
 
-lm.i.i <- lm(log(concentration) ~ soil_inocula*herbivory,
-         data=insects_i)
+lm.i.i <- glm(log(concentration) ~ soil_inocula*herbivory,
+              family=gaussian,
+              data=insects_i)
 
-car::Anova(lm.i.i, type="II", test.statistic="F")
+lm.i.i_table <- car::Anova(lm.i.i, type="II", test.statistic="LR")
 simulateResiduals(lm, plot=T) #ok
 
 #pairiwse differences
 emmeans_herb <- emmeans(lm.i.i, pairwise~herbivory) #differences between Ctrl and SA
 
 #save result
-factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H", "Residuals")
-lm.i.i_table <- cbind (factors, as.data.frame(Anova(lm.i.i)))
-lm.i.i_table$`Pr(>F)` <- round(lm.i.i_table$`Pr(>F)`, 3)
+factors <- c("Soil inoculum (S)", "Herbivory (H)", "S*H")
+lm.i.i_table <- cbind (factors, as.data.frame(lm.i.i_table))
+lm.i.i_table$`Pr(>Chisq)` <- round(lm.i.i_table$`Pr(>Chisq)`, 3)
 table <- nice_table(lm.i.i_table,
-              title = c("Table X. Linear Model for indolic GLS in Feedback phase - Insects"),
+              title = c("Table X. GLM for indolic GLS in Feedback phase - Insects"),
               note = "~ soil_inocula*herbivory")
 
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
 
-flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_lm_indoGLS_insects.docx")
+flextable::save_as_docx(table, path = "./Tables/03_glucosinolates/feedback_indoGLS_insects.docx")
 
 
 ```

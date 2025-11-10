@@ -109,7 +109,7 @@ ps_16S_filt #less than 2,000 taxa
 set.seed(123)
 
 
-ancom <- lapply(ps_16S_split, function(ps){
+ancom_16S_new <- lapply(ps_16S_split, function(ps){
   set.seed(123)
   ANCOMBC::ancombc(phyloseq = ps, 
                       formula = "plant_pathway_induced", 
@@ -643,6 +643,7 @@ df_euler <- c("JAp" = JAp,
 
 #prepare df
 fit <- euler(df_euler, control=list(shape="ellipse", loss="raw"))
+
 
 #plot euler diagram & save it as svg
 svg("./Plots/03_differential_abundance/euler_diagram_16S.svg",
@@ -1875,13 +1876,26 @@ Totali <- dim(insects_dataDA$binary_stress)[1] #total number
 #make df
 df_euler <- c("JAp" = JAp,
            "SAp" = SAp,
-           "JAp&SAp" = Bothp,
+           "JAp&SAp" = Bothp),
+           "JAi" = JAi,
+           "SAi" = SAi,
+           "JAi&SAi" = Bothi)
+
+df_euler <- c(
            "JAi" = JAi,
            "SAi" = SAi,
            "JAi&SAi" = Bothi)
 
 #prepare df
 fit <- euler(df_euler, control=list(shape="ellipse", loss="raw"))
+
+# Extract set sizes and calculate percentages
+set_sizes <- fit$original
+total_size <- sum(set_sizes)
+percentages <- round((set_sizes / total_size) * 100, 1)
+
+
+
 
 #plot euler diagram & save it as svg
 svg("./Plots/03_differential_abundance/euler_diagram_ITS.svg",

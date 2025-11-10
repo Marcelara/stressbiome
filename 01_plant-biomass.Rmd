@@ -224,23 +224,67 @@ summarise(
     mean = mean(concentration, na.rm = TRUE))
 ```
 
+```{r}
+#quick summary
+phyto %>% group_by(Experiment, soil_inocula) %>% summarise(n=n()) #not balanced
+
+#with interaction
+lm <- glm(shoot_biomass_mg ~ soil_inocula*herbivory,
+          family=gaussian,
+          data=phyto)
+
+lm.anova <- car::Anova(lm, type="III", test.statistic="LR")
+simulateResiduals(lm, plot=T) #ok
+
+
+#pairiwse differences
+emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
+
+#Save tables 
+. <- c("Soil inocula (S)", "Herbivory (H)", "S*H")
+lm_table <- cbind (., as.data.frame(lm.anova))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. GLM for plant biomass in Feedback phase - Phyto"),
+              note = "shoot_biomass_mg  ~ soil_inocula*herbivory, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/feedback_lm_biomass_phyto.docx")
+```
+
 
 ```{r}
 #one-way ANOVA: Simulated
 simu <- subset(conditioning, Experiment == "simulated") %>% droplevels()
-aov_simulated <- aov(shoot_biomass_mg  ~ plant_pathway_induced,
-                   data=simu)
-summary(aov_simulated)
 
-#checks
-plot(aov_simulated, which = 2) 
-qqPlot(aov_simulated$residuals, id = T) #q-q plot looks ok!
-plot(aov_simulated, which = 3)
-hist(aov_simulated$residuals)
+aov_simulated <- glm(shoot_biomass_mg  ~ plant_pathway_induced,
+                     family=gaussian,
+                   data=simu)
+
+lm.anova <- car::Anova(aov_simulated, type="III", test.statistic="LR")
+
+simulateResiduals(aov_simulated, plot=T) #ok
+
+#Save tables 
+. <- c("Treatment")
+lm_table <- cbind (., as.data.frame(lm.anova))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. GLM for plant biomass in Conditioning phase - Phyto"),
+              note = "shoot_biomass_mg  ~ treatment, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/conditioning_lm_biomass_phyto.docx")
+
+###
 
 #post-hoc test
 emmeans <- emmeans(aov_simulated, "plant_pathway_induced", data=simu)
-posthoc <- pairs(emmeans, adjust="tukey")
+posthoc <- cld(emmeans, letters="letters", adjust="tukey")
 plot(emmeans, comparisons = TRUE) #check 
 
 #make tables
@@ -277,19 +321,34 @@ x <- real %>% group_by(plant_pathway_induced) %>%
 ```{r}
 #one-way ANOVA: Real Insects
 real <- subset(conditioning, Experiment == "real_insects") %>% droplevels()
-aov_real <- aov(shoot_biomass_mg  ~ plant_pathway_induced,
-                   data=real)
-summary(aov_real)
 
-#checks
-plot(aov_real, which = 2) 
-qqPlot(aov_real$residuals, id = T) #q-q plot looks ok!
-plot(aov_real, which = 3)
-hist(aov_real$residuals)
+#quick summary
+real %>% group_by(Experiment, plant_pathway_induced) %>% summarise(n=n())
+
+aov_real <- glm(shoot_biomass_mg  ~ plant_pathway_induced,
+                family=gaussian,
+                   data=real)
+
+lm.anova <- car::Anova(aov_real, type="II", test.statistic="LR")
+
+simulateResiduals(aov_real, plot=T) #ok
+
+#Save tables 
+. <- c("Treatment")
+lm_table <- cbind (., as.data.frame(lm.anova))
+lm_table$`Pr(>Chisq)` <- round(lm_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm_table,
+              title = c("Table X. GLM for plant biomass in Conditioning phase - Insects"),
+              note = "shoot_biomass_mg  ~ treatment, GLM-Gaussian")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/conditioning_lm_biomass_insects.docx")
 
 #post-hoc test
 emmeans <- emmeans(aov_real, "plant_pathway_induced", data=real)
-posthoc <- pairs(emmeans, adjust="tukey")
+posthoc <- cld(emmeans, letters="letters", adjust="tukey")
 plot(emmeans, comparisons = TRUE) #check 
 
 #make tables
@@ -478,7 +537,7 @@ dev.off()
 phyto <- subset(feedback, Experiment == "simulated")
 
 #quick summary
-phyto %>% group_by(Experiment, soil_inocula) %>% summarise(n=n()) #not balanced
+phyto %>% group_by(Experiment, soil_inocula, herbivory) %>% summarise(n=n()) #not balanced
 
 #with interaction
 lm <- glm(shoot_biomass_mg ~ soil_inocula*herbivory,
@@ -488,9 +547,8 @@ lm <- glm(shoot_biomass_mg ~ soil_inocula*herbivory,
 lm.anova <- car::Anova(lm, type="III", test.statistic="LR")
 simulateResiduals(lm, plot=T) #ok
 
-
 #pairiwse differences
-emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
+#emmeans_herb <- emmeans(lm, pairwise~herbivory) #differences between NI and caterpillar
 
 #Save tables 
 . <- c("Soil inocula (S)", "Herbivory (H)", "S*H")
@@ -507,12 +565,13 @@ flextable::save_as_docx(table, path = "./Tables/01_plant-biomass/feedback_lm_bio
 
 #---- Insects ----
 insects <- subset(feedback, Experiment == "real_insects")
+insects %>% group_by(Experiment, soil_inocula, herbivory) %>% summarise(n=n()) #balanced
 
 lm.i <- glm(shoot_biomass_mg ~ soil_inocula*herbivory,
             family=gaussian,
             data=insects)
 
-lm.i.anova <- car::Anova(lm.i, type="III", test.statistic="LR")
+lm.i.anova <- car::Anova(lm.i, type="II", test.statistic="LR")
 simulateResiduals(lm.i, plot=T) #ok
 
 #pairiwse differences

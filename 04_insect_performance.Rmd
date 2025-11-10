@@ -119,6 +119,9 @@ caterpillars <-  caterpillars %>%
                    droplevels()
 
 
+
+
+
 #make it long
 #making it long 
 cat_long <- caterpillars %>% 
@@ -204,49 +207,54 @@ x=c("caterpillar_weight.svg",
 
 #Linear Model Phyto
 phyto <- subset(cat_summary, Experiment == "simulated")
+phyto %>% group_by(Experiment,soil_inocula) %>% summarise(n=n()) #not-balanced
 
 #lm
-lm.p <- lm(mean ~ soil_inocula, 
+lm.p <- glm(mean ~ soil_inocula, 
+            family=gaussian,
          data=phyto)
 
-car::Anova(lm, type="II", test.statistic="F")
-simulateResiduals(lm, plot=T) #ok
+lm.p_table <- car::Anova(lm.p, type="II", test.statistic="LR")
+simulateResiduals(lm.p, plot=T) #ok
 
 #save result
-factors <- c("Soil inoculum (S)", "Residuals")
-lm.p_table <- cbind (factors, as.data.frame(Anova(lm.p)))
-lm.p_table$`Pr(>F)` <- round(lm.p_table$`Pr(>F)`, 3)
+factors <- c("Soil inocula(S)")
+lm.p_table <- cbind (factors, as.data.frame(lm.p_table))
+lm.p_table$`Pr(>Chisq)` <- round(lm.p_table$`Pr(>Chisq)`, 3)
 table <- nice_table(lm.p_table,
-              title = c("Table X. Linear Model for aliphatic GLS in Feedback phase - Insects"),
+              title = c("Table X. GLM for aliphatic GLS in Feedback phase - Insects"),
               note = "~ soil_inocula*herbivory")
 
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
 
-flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpillar_weight_lm_phyto.docx")
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpillar_weight_phyto.docx")
 
 #Linear Model Insects
 insects <- subset(cat_summary, Experiment == "real_insects")
+insects %>% group_by(Experiment,soil_inocula) %>% summarise(n=n()) #balanced
+
 
 #glmer
-lm.i <- lm(mean ~ soil_inocula, 
+lm.i <- glm(mean ~ soil_inocula, 
+            family=gaussian,
          data=insects)
 
-car::Anova(lm.i, type="II", test.statistic="F")
+lm.i_table <- car::Anova(lm.i, type="II", test.statistic="LR")
 simulateResiduals(lm.i, plot=T) #ok
 
 #save result
-factors <- c("Soil inoculum (S)", "Residuals")
-lm.i_table <- cbind (factors, as.data.frame(Anova(lm.i)))
-lm.i_table$`Pr(>F)` <- round(lm.i_table$`Pr(>F)`, 3)
+factors <- c("Soil inocula(S)")
+lm.i_table <- cbind (factors, as.data.frame(lm.i_table))
+lm.i_table$`Pr(>Chisq)` <- round(lm.i_table$`Pr(>Chisq)`, 3)
 table <- nice_table(lm.i_table,
-              title = c("Table X. Linear Model for aliphatic GLS in Feedback phase - Insects"),
+              title = c("Table X. GLM for aliphatic GLS in Feedback phase - Insects"),
               note = "~ soil_inocula*herbivory")
 
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
 
-flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpillar_weight_lm_insects.docx")
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/caterpillar_weight_insects.docx")
 
 ```
 
@@ -480,6 +488,7 @@ aphids_long
 
 #subset to phyto
 phyto <- subset(aphids_long, Experiment == "simulated")
+phyto %>% group_by(Experiment,soil_inocula) %>% summarise(n=n()) #balanced
 
 glm.p <- glm(count ~ soil_inocula*time_point,
               family=Gamma(link="log"),
@@ -487,16 +496,16 @@ glm.p <- glm(count ~ soil_inocula*time_point,
 
 #check
 simulateResiduals(glm.p , plot=T) #ok
-summary(glm.p)
+
 
 #get summary
-x <- car::Anova(glm.p , type="II", test.statistic="F")
+x <- car::Anova(glm.p , type="II", test.statistic="LR")
 x <- as.data.frame(x)
 
 #save result
-factors <- c("Soil inoculum (S)", "Time point(T)", "S*T", "Residuals")
+factors <- c("Soil inocula (S)", "Time point(T)", "S*T")
 glm.p_table <- cbind (factors, x)
-glm.p_table$`Pr(>F)` <- round(glm.p_table$`Pr(>F)`, 3)
+glm.p_table$`Pr(>Chisq)` <- round(glm.p_table$`Pr(>Chisq)`, 3)
 table <- nice_table(glm.p_table,
               title = c("Table X. GLM for aphid number over time - Phyto"),
               note = "~ soil_inocula*Timepoint")
@@ -504,13 +513,12 @@ table <- nice_table(glm.p_table,
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
 
-flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_glm_phyto.docx")
-
-
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_phyto.docx")
 
 
 #---- insects ----
 insects <- subset(aphids_long, Experiment == "real_insects")
+insects %>% group_by(Experiment,soil_inocula) %>% summarise(n=n()) #not-balanced
 
 glm.i <- glm(count ~ soil_inocula*time_point,
               family=Gamma(link="log"),
@@ -520,13 +528,13 @@ glm.i <- glm(count ~ soil_inocula*time_point,
 simulateResiduals(glm.i, plot=T) #ok
 
 #get summary
-y <- car::Anova(glm.i , type="II", test.statistic="F")
+y <- car::Anova(glm.i , type="II", test.statistic="LR")
 y <- as.data.frame(y)
 
 #save result
-factors <- c("Soil inoculum (S)", "Time point(T)", "S*T", "Residuals")
+factors <- c("Soil inoculum (S)", "Time point(T)", "S*T")
 glm.i_table <- cbind (factors, y)
-glm.i_table$`Pr(>F)` <- round(glm.i_table$`Pr(>F)`, 3)
+glm.i_table$`Pr(>Chisq)` <- round(glm.i_table$`Pr(>Chisq)`, 3)
 table <- nice_table(glm.i_table,
               title = c("Table X. GLM for aphid number over time - Insects"),
               note = "~ soil_inocula*Timepoint")
@@ -534,7 +542,7 @@ table <- nice_table(glm.i_table,
 table <- table %>%
          flextable::colformat_num(big.mark = "", digits = 3) 
 
-flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_glm_insects.docx")
+flextable::save_as_docx(table, path = "./Tables/04_insect_performance/aphid_number_insects.docx")
 
 
 ```

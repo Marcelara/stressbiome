@@ -53,8 +53,17 @@ library(ggpubr)
 #Set plots theme
 ggplot2::theme_set(theme_bw())
 
+# Set default axis looks
+axis_looks <- theme(axis.text.x = element_text(colour = "black", size = 9,
+                                               face = "bold", angle=0, hjust=0.5))+ #text in X
+  theme(axis.text.y = element_text(colour = "black", size = 9, face = "bold"))+ #text in y
+  theme(axis.title=element_text(size=11, face = "bold"))+ #all texts
+  theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 10, b = 0, l = 0)))+
+  theme(panel.grid.major = element_blank(), #no grid
+        panel.grid.minor = element_blank()) #no grid
+
 #Set colors
-color_stress <- c("#BFBFBF", "#E69F00", "#4472C4")
+color_stress <- c("#BFBFBF", "#E69F00", "#319B67")
 color_experiment <- c("#CC3399", "#70AD47")
 
 ```
@@ -64,7 +73,7 @@ color_experiment <- c("#CC3399", "#70AD47")
 ##Loading data
 ```{r}
 #ITS
-load(file = "./Results/amplicon/pre_procesing/ps_ITS_FunGuild.RData")
+load(file = "./amplicon_data/Phyloseq_objects/ps_ITS.RData")
 ps_ITS
 
 #let's quickly check how many replicates we have left per experiment
@@ -97,11 +106,20 @@ ITS_exp <- phyloseq_sep_variable(ps_ITS, variable="Experiment", drop_zeroes = T)
 ITS_exp <- ITS_exp[-3] #let's remove EPG for now
 
 #rarefy to even depth
-ITS_exp_rar <-lapply(ITS_exp, function(ps){
-  rarefy_even_depth(ps, sample.size = min(sample_sums(ps)),
-  rngseed = 123, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)})
+#ITS_exp_rar <-lapply(ITS_exp, function(ps){
+#  rarefy_even_depth(ps, sample.size = min(sample_sums(ps)),
+#  rngseed = 123, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)})
 
-lapply(ITS_exp_rar, function(ps){ sample_sums(ps)}) 
+pITS_median <- lapply(ITS_exp, function(ps){
+  total <- median(sample_sums(ps))
+  standf <- function(x, t=total) round(t * (x / sum(x)))
+  physeq_msd = transform_sample_counts(ps, standf)
+  print((sample_sums(physeq_msd)))
+  return(physeq_msd)
+})
+
+
+lapply(pITS_median, function(ps){ sample_sums(ps)}) 
 #77,964 reads for Phyto
 #71,489 reads for Insects
 
@@ -113,11 +131,11 @@ Phytohormones experiment has 6 replicates for controls, the rest is between 10-1
 ```{r}
 
 #plot it
-p <- lapply(ITS_exp_rar, function(ps){plot_richness(ps, x= "plant_pathway_induced", scales="free_y")})
+#p <- lapply(ITS_exp_rar, function(ps){plot_richness(ps, x= "plant_pathway_induced", scales="free_y")})
 
-lapply(p, function(plot){
-  plot + geom_boxplot(data=plot$data, aes(x= Experiment, y=value, color=NULL), alpha=0.1)+
-    scale_color_manual(values=color_experiment)})
+#lapply(p, function(plot){
+#  plot + geom_boxplot(data=plot$data, aes(x= Experiment, y=value, color=NULL), alpha=0.1)+
+#    scale_color_manual(values=color_experiment)})
 
 #Observed(Richness):Total number of ASVs
 #Chao1:Same as Observed but aims to calculate real number of ASVs using single- and doubletons
@@ -126,9 +144,9 @@ lapply(p, function(plot){
 
 
 #get Observed, Shannon and Simpson indexes
-richness <- lapply(ITS_exp_rar, function(ps){
+richness <- lapply(pITS_median, function(ps){
   estimate_richness(ps,
-            measures = c("Observed", "Chao1", "Shannon", "Simpson"))
+            measures = c("Observed", "Shannon", "Simpson"))
 })
 
 #fix df 
@@ -139,14 +157,14 @@ richness <- lapply(richness, function(df){
 })
 
 #Get Faith's phylogenetic diversity index
-pd <- lapply(ITS_exp_rar, function(ps){
+pd <- lapply(pITS_median, function(ps){
   pd(t(as.data.frame(ps@otu_table)), ps@phy_tree,include.root=T)
   })
 
 #merge with metadata of ps object
-richness$cond_phytohormones <- x<-cbind(as.data.frame(sample_data(ITS_exp_rar$cond_phytohormones)), richness$cond_phytohormones, pd$cond_phytohormones)
+richness$cond_phytohormones <- x<-cbind(as.data.frame(sample_data(pITS_median$cond_phytohormones)), richness$cond_phytohormones, pd$cond_phytohormones)
 
-richness$cond_real_insects<- cbind(as.data.frame(sample_data(ITS_exp_rar$cond_real_insects)), richness$cond_real_insects, pd$cond_real_insects)
+richness$cond_real_insects<- cbind(as.data.frame(sample_data(pITS_median$cond_real_insects)), richness$cond_real_insects, pd$cond_real_insects)
 
 #select the columns needed
 richness <- lapply(richness, function(df){
@@ -155,7 +173,7 @@ richness <- lapply(richness, function(df){
                          'Amplicon_concentation_ngul',
                          'total_reads',
                          'libsize_after_filtering',
-                         'shoot_biomass',"Observed","Chao1",
+                         'shoot_biomass',"Observed",
                          "Shannon", "Simpson", "PD", "sample_name"))
 })
 
@@ -173,9 +191,85 @@ For now, just work with Richness, Shannon and PD
 ###Plot
 
 Plot it
+
 ```{r}
 
-estimates <- c("Observed","Chao1", "Shannon", "Simpson", "PD")
+
+estimates <- c("Observed","Shannon", "PD")
+
+#add info for y axis
+
+limits <- data.frame(
+  variable = c("Observed","Shannon","PD"),
+  y_min = c(0, 0, 0), # Set your desired minimum y-axis limits
+  y_max = c(200, 4, 40) # Set your desired maximum y-axis limits
+)
+
+#merge
+richness_long_ITS_estimates <- lapply(richness_long, function(df){
+  df <- filter(df, variable %in% estimates)
+  df <- df %>% left_join(limits, by="variable")
+  df$variable <- factor(df$variable, levels=c("Observed","Shannon","PD"))
+  return(df)
+  })
+
+
+#Plot phytohormones
+p.p <- ggplot(richness_long_ITS_estimates$cond_phytohormones,
+       aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
+     geom_boxplot(aes(fill = plant_pathway_induced))+
+     geom_jitter(data = richness_long_ITS_estimates$cond_phytohormones,
+                 mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
+              shape = 21, size = 1.5, color = "black", alpha=0.5,
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
+     scale_fill_manual(values=color_stress)+
+  geom_line() +
+  geom_blank(aes(y = y_min)) + # Force the minimum y limit
+  geom_blank(aes(y = y_max)) + # Force the maximum y limit
+  facet_wrap(~ variable, scales = "free_y") +
+  theme(legend.position = "none")+
+    axis_looks
+
+p.i <- ggplot(richness_long_ITS_estimates$cond_real_insects,
+       aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
+     geom_boxplot(aes(fill = plant_pathway_induced))+
+     geom_jitter(data = richness_long_ITS_estimates$cond_real_insects,
+                 mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
+              shape = 21, size = 1.5, color = "black", alpha=0.5,
+              position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
+     scale_fill_manual(values=color_stress)+
+  geom_line() +
+  geom_blank(aes(y = y_min)) + # Force the minimum y limit
+  geom_blank(aes(y = y_max)) + # Force the maximum y limit
+  facet_wrap(~ variable, scales = "free_y") +
+  theme(legend.position = "none")+
+    axis_looks
+
+
+library(patchwork)
+
+p.p / p.i
+
+#save it
+mapply(function(x)
+  ggsave(
+  plot = last_plot(),
+  filename =x,
+  path = "./Plots/01_alpha_beta_diversity",
+  scale = 2.0,
+  width = 1000,
+  height = 800,
+  units = "px",
+  dpi = 300),
+x=c("alpha_both_ITS.pdf","alpha_both_ITS.png"))
+
+
+```
+
+
+```{r}
+
+estimates <- c("Observed","Shannon", "PD")
 
 #Plot phytohormones
 ggplot(subset(richness_long$cond_phytohormones, variable %in% estimates), aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
@@ -287,6 +381,7 @@ ggscatter(richness$cond_real_insects, x = "libsize_after_filtering",
 *As singletons and doubletons were removed from the dataframe, Chao 1 is basically the same as just richness (Observed)
 
 ###Stats
+
 ```{r}
 
 #make a single df with both experiments
@@ -312,6 +407,183 @@ rm(m.reads)
 ```
 
 Now I can continue analyzing each experiment independently, and focusing in Richness, Shannon and Faith's PD phylogenetic diversity
+
+####Richness
+```{r}
+
+#change name to avoid re-writting the code
+richness 
+
+##1.Observed/Richness
+
+obs <- lapply(richness, function(df){
+        glm(df$Observed ~ plant_pathway_induced,
+                data=df,
+                family=Gamma(link="log"))})#changed to glm with quasipoisson distribution
+
+obs.table <- lapply(obs, function(model){
+  car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
+})
+
+#check if assumptions are met
+lapply(obs, function(model){simulateResiduals(model, plot=T)}) #ok
+
+#save result
+factors <- c("Treatment","Residuals")
+glm.p_table <- cbind (factors, obs.table$cond_phytohormones)
+glm.p_table$`Pr(>F)` <- round(glm.p_table$`Pr(>F)`, 3)
+table <- nice_table(glm.p_table,
+              title = c("Table X. GLM for observed number of ASVs (Richness) - Phyto"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/observed_phyto_ITS.docx")
+
+glm.i_table <- cbind (factors, obs.table$cond_real_insects)
+glm.i_table$`Pr(>F)` <- round(glm.i_table$`Pr(>F)`, 3)
+table <- nice_table(glm.i_table,
+              title = c("Table X. GLM for observed number of ASVs (Richness) - Insects"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/observed_insects_ITS.docx")
+
+#emmeans
+library(multcomp)
+
+lapply(obs, function(model){plot(emmeans(model, pairwise ~  plant_pathway_induced))}) 
+obs.emmeans <- lapply(obs, function(model){
+              x <- emmeans(model, pairwise ~  plant_pathway_induced)
+              x <- multcomp::cld(x, adjust="sidak", Letters=letters)
+              return(x)})
+
+x <- as.data.frame(obs.emmeans$cond_phytohormones)
+
+#make it a df  
+obs.df <- lapply(obs.emmeans, function(emmeans){
+  x <- as.data.frame(emmeans)
+  return(x)})
+
+
+```
+
+####Shannon
+```{r}
+
+descdist(richness$cond_phytohormones$Shannon, discrete = FALSE)
+
+##2.Shannon
+shann <- lapply(richness, function(df){
+          lm(log(df$Shannon) ~ plant_pathway_induced,
+                data=df)})
+
+shann.table <- lapply(shann, function(model){
+  car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
+})
+
+shann.table #both not significant
+
+#check if assumptions are met
+lapply(shann, function(model){simulateResiduals(model, plot=T)}) #ok
+
+
+#save result
+factors <- c("Intercept","Treatment","Residuals")
+lm.p_table <- cbind (factors, shann.table$cond_phytohormones)
+lm.p_table$`Pr(>F)` <- round(lm.p_table$`Pr(>F)`, 3)
+table <- nice_table(lm.p_table,
+              title = c("Table X. LM for Shannon - Phyto"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/shannon_phyto_ITS.docx")
+
+lm.i_table <- cbind (factors, shann.table$cond_real_insects)
+lm.i_table$`Pr(>F)` <- round(lm.i_table$`Pr(>F)`, 3)
+table <- nice_table(lm.i_table,
+              title = c("Table X. LM for Shannon - Insects"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/shannon_insects_ITS.docx")
+
+```
+
+No difference, same shannon index value (and Simpson, very similar communities)
+
+####Faith's PD
+```{r}
+
+##3. Phylogenetic Diversity
+pd <- lapply(richness, function(df){
+        glm(log(df$PD) ~ plant_pathway_induced,
+                data=df,
+            family=Gamma(link="log"))})
+
+summary(pd$cond_phytohormones)
+
+pd.table <- lapply(pd, function(model){
+  car::Anova(model, type="III", test.statistic="LR")#using type III, as its unbalanced
+})
+
+pd.table #both signigicant
+
+#check if assumptions are met
+lapply(pd, function(model){simulateResiduals(model, plot=T)}) #ok
+
+#save result
+factors <- c("Treatment")
+lm.p_table <- cbind (factors, pd.table$cond_phytohormones)
+lm.p_table$`Pr(>Chisq)` <- round(lm.p_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm.p_table,
+              title = c("Table X. GLM for Faith's PD - Phyto"),
+              note = "~ plant_pathway_induced, GLM with log link")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/PD_phyto_ITS.docx")
+
+lm.i_table <- cbind (factors, pd.table$cond_real_insects)
+lm.i_table$`Pr(>Chisq)` <- round(lm.i_table$`Pr(>Chisq)`, 3)
+table <- nice_table(lm.i_table,
+              title = c("Table X. GLM for Faith's PD - Insects"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/PD_insects_ITS.docx")
+
+#emmeans
+lapply(pd, function(model){plot(emmeans(model, pairwise ~  plant_pathway_induced))}) 
+pd.emmeans <- lapply(pd, function(model){
+              x <- emmeans(model, pairwise ~  plant_pathway_induced)
+              x <- multcomp::cld(x, adjust="none", Letters=letters)
+              return(x)})
+
+x <- as.data.frame(obs.emmeans$cond_phytohormones)
+
+#make it a df  
+obs.df <- lapply(obs.emmeans, function(emmeans){
+  x <- as.data.frame(emmeans)
+  return(x)})
+
+
+```
+
+
+
+
+
 
 ####Richness
 ```{r}
@@ -559,7 +831,7 @@ Continue with 16S, go back to line 12 to load packages and plot settings again
 ##Loading data
 ```{r}
 #16S
-load(file = "./Results/amplicon/pre_procesing/ps_16S.RData")
+load(file = "./amplicon_data/Phyloseq_objects/ps_16S.RData")
 ps_16S
 
 #let's quickly check how many replicates we have left per experiment
@@ -602,25 +874,25 @@ lapply(p16S_exp, function(ps){sort(sample_sums(ps))})
 #physeq_msd = transform_sample_counts(physeq_f_unnorm, standf)
 
 #let's do this analysis at family level
-p16S_family <- lapply(p16S_exp, function(ps){
-  ps <- tax_glom(ps, taxrank="Family")
-  return(ps)
-})
+#p16S_family <- lapply(p16S_exp, function(ps){
+#  ps <- tax_glom(ps, taxrank="Family")
+#  return(ps)
+#})
 
 
-#transform counts with median transformation
-p16S_family2 <- lapply(p16S_family, function(ps){
+#transform counts with median transformation (recommended by Melissa)
+p16S_median <- lapply(p16S_exp, function(ps){
   total <- median(sample_sums(ps))
   standf <- function(x, t=total) round(t * (x / sum(x)))
   physeq_msd = transform_sample_counts(ps, standf)
-  print(head(sample_sums(physeq_msd)))
+  print((sample_sums(physeq_msd)))
   return(physeq_msd)
 })
 
 #rarefy to even depth
 #p16S_exp_rar <-lapply(p16S_exp, function(ps){
-  rarefy_even_depth(ps, sample.size = min(sample_sums(ps)),
-  rngseed = 123, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)})
+#  rarefy_even_depth(ps, sample.size = min(sample_sums(ps)),
+#  rngseed = 123, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)})
 
 #lapply(p16S_exp_rar, function(ps){ sample_sums(ps)}) 
 #49,633 reads for Phyto
@@ -633,14 +905,12 @@ More or less same replicates
 ##Alpha diversity
 ```{r}
 
-p16S_exp_rar <-p16S_family2
-
 #plot it
-p <- lapply(p16S_exp_rar, function(ps){plot_richness(ps, x= "plant_pathway_induced", scales="free_y")})
+#p <- lapply(p16S_median, function(ps){plot_richness(ps, x= "plant_pathway_induced", scales="free_y")})
 
-lapply(p, function(plot){
-  plot + geom_boxplot(data=plot$data, aes(x= Experiment, y=value, color=NULL), alpha=0.1)+
-    scale_color_manual(values=color_experiment)})
+#lapply(p, function(plot){
+#  plot + geom_boxplot(data=plot$data, aes(x= Experiment, y=value, color=NULL), alpha=0.1)+
+#    scale_color_manual(values=color_experiment)})
 
 #Observed(Richness):Total number of ASVs
 #Chao1:Same as Observed but aims to calculate real number of ASVs using single- and doubletons, cannot be used
@@ -649,9 +919,9 @@ lapply(p, function(plot){
 
 
 #get Observed, Shannon and Simpson indexes
-richness_16S <- lapply(p16S_exp_rar, function(ps){
+richness_16S <- lapply(p16S_median, function(ps){
   estimate_richness(ps,
-            measures = c("Observed", "Chao1", "Shannon", "Simpson"))
+            measures = c("Observed", "Shannon", "Simpson"))
 })
 
 #fix df 
@@ -662,14 +932,14 @@ richness_16S <- lapply(richness_16S, function(df){
 })
 
 #Get Faith's phylogenetic diversity index
-pd <- lapply(p16S_exp_rar, function(ps){
+pd <- lapply(p16S_median, function(ps){
   pd(t(as.data.frame(ps@otu_table)), ps@phy_tree,include.root=T)
   })
 
 #merge with metadata of ps object
-richness_16S$cond_phytohormones <- cbind(as.data.frame(sample_data(p16S_exp_rar$cond_phytohormones)), richness_16S$cond_phytohormones, pd$cond_phytohormones)
+richness_16S$cond_phytohormones <- cbind(as.data.frame(sample_data(p16S_median$cond_phytohormones)), richness_16S$cond_phytohormones, pd$cond_phytohormones)
 
-richness_16S$cond_real_insects<- cbind(as.data.frame(sample_data(p16S_exp_rar$cond_real_insects)), richness_16S$cond_real_insects, pd$cond_real_insects)
+richness_16S$cond_real_insects<- cbind(as.data.frame(sample_data(p16S_median$cond_real_insects)), richness_16S$cond_real_insects, pd$cond_real_insects)
 
 #select the columns needed
 richness_16S <- lapply(richness_16S, function(df){
@@ -678,7 +948,7 @@ richness_16S <- lapply(richness_16S, function(df){
                          'Amplicon_concentation_ngul',
                          'total_reads',
                          'libsize_after_filtering',
-                         'shoot_biomass',"Observed","Chao1",
+                         'shoot_biomass',"Observed",
                          "Shannon", "Simpson", "PD", "sample_name"))
 })
 
@@ -691,7 +961,7 @@ rm(p, pd)
 
 ```
 
-For now, just work with Richness, Shannon and PD
+For now, just work with Observed(Richness), Shannon and PD
 
 ###Plot
 
@@ -700,65 +970,58 @@ Plot it
 
 estimates <- c("Observed","Shannon","PD")
 
+#add info for y axis
+
+limits <- data.frame(
+  variable = c("Observed","Shannon","PD"),
+  y_min = c(0, 4, 50), # Set your desired minimum y-axis limits
+  y_max = c(3000, 8, 180) # Set your desired maximum y-axis limits
+)
+
+#merge
+richness_long_16S_estimates <- lapply(richness_long_16S, function(df){
+  df <- filter(df, variable %in% estimates)
+  df <- df %>% left_join(limits, by="variable")
+  df$variable <- factor(df$variable, levels=c("Observed","Shannon","PD"))
+  return(df)
+  })
+
+
 #Plot phytohormones
-ggplot(subset(richness_long_16S$cond_phytohormones, variable %in% estimates), aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
-     geom_boxplot(aes(fill = plant_pathway_induced))+
-     geom_jitter(data = subset(richness_long_16S$cond_phytohormones, variable %in% estimates),
-                 mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
-              shape = 21, size = 1.5, color = "black", alpha=0.5,
-              position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
-     scale_fill_manual(values=color_stress)+
-     facet_wrap(~variable, scales = "free_y")
-
-#save it
-mapply(function(x)
-  ggsave(
-  plot = last_plot(),
-  filename =x,
-  path = "./Plots/01_alpha_beta_diversity",
-  scale = 1.8,
-  width = 1000,
-  height = 500,
-  units = "px",
-  dpi = 300),
-x=c("alpha_phyto_16S.svg","alpha_phyto_16S.png"))
-
-#Plot Herbivores
-ggplot(subset(richness_long_16S$cond_real_insects, variable %in% estimates),
+p.p <- ggplot(richness_long_16S_estimates$cond_phytohormones,
        aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
      geom_boxplot(aes(fill = plant_pathway_induced))+
-     geom_jitter(data = subset(richness_long_16S$cond_real_insects, variable %in% estimates),
+     geom_jitter(data = richness_long_16S_estimates$cond_phytohormones,
                  mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
               shape = 21, size = 1.5, color = "black", alpha=0.5,
               position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
      scale_fill_manual(values=color_stress)+
-     facet_wrap(~variable, scales = "free_y")
+  geom_line() +
+  geom_blank(aes(y = y_min)) + # Force the minimum y limit
+  geom_blank(aes(y = y_max)) + # Force the maximum y limit
+  facet_wrap(~ variable, scales = "free_y") +
+  theme(legend.position = "none")+
+    axis_looks
 
-#save it
-mapply(function(x)
-  ggsave(
-  plot = last_plot(),
-  filename =x,
-  path = "./Plots/01_alpha_beta_diversity",
-  scale = 1.8,
-  width = 1000,
-  height = 500,
-  units = "px",
-  dpi = 300),
-x=c("alpha_herbivore_16S.svg","alpha_herbivore_16S.png"))
-
-#Both
-richness_full_long_16S <- rbind(richness_long_16S$cond_phytohormones, richness_long_16S$cond_real_insects)
-
-ggplot(subset(richness_full_long_16S, variable %in% estimates),
+p.i <- ggplot(richness_long_16S_estimates$cond_real_insects,
        aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced))+
      geom_boxplot(aes(fill = plant_pathway_induced))+
-     geom_jitter(data = subset(richness_full_long_16S, variable %in% estimates),
+     geom_jitter(data = richness_long_16S_estimates$cond_real_insects,
                  mapping = aes(x = plant_pathway_induced, y = value, fill=plant_pathway_induced),
               shape = 21, size = 1.5, color = "black", alpha=0.5,
               position = position_jitterdodge(jitter.height = .1, jitter.width = .5))+
      scale_fill_manual(values=color_stress)+
-     facet_wrap(variable~Experiment, scales = "free_y", ncol=2)
+  geom_line() +
+  geom_blank(aes(y = y_min)) + # Force the minimum y limit
+  geom_blank(aes(y = y_max)) + # Force the maximum y limit
+  facet_wrap(~ variable, scales = "free_y") +
+  theme(legend.position = "none")+
+    axis_looks
+
+
+library(patchwork)
+
+p.p / p.i
 
 #save it
 mapply(function(x)
@@ -766,13 +1029,12 @@ mapply(function(x)
   plot = last_plot(),
   filename =x,
   path = "./Plots/01_alpha_beta_diversity",
-  scale = 1.8,
+  scale = 2.0,
   width = 1000,
-  height = 1200,
+  height = 800,
   units = "px",
   dpi = 300),
-x=c("alpha_both_16S.svg","alpha_both_16S.png"))
-
+x=c("alpha_both_16S.pdf","alpha_both_16S.png"))
 
 ```
 
@@ -842,28 +1104,42 @@ Now I can continue analyzing each experiment independently, and focusing in Rich
 richness <- richness_16S
 
 ##1.Observed/Richness
+
 obs <- lapply(richness, function(df){
-        glm(df$Observed ~ plant_pathway_induced + libsize_after_filtering,
+        glm(df$Observed ~ plant_pathway_induced,
                 data=df,
-                family=quasipoisson())})#changed to glm with quasipoisson distribution
+                family=Gamma(link="log"))})#changed to glm with quasipoisson distribution
 
 obs.table <- lapply(obs, function(model){
   car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
 })
 
 #check if assumptions are met
-lapply(obs, function(model){simulateResiduals(model, plot=T)}) #not working with quasipoisson
-lapply(obs, function(model){hist(resid(model))}) #normalish
-lapply(obs, function(model){ols_plot_resid_qq(model)}) #okeysh
-lapply(obs, function(model){ols_plot_resid_fit(model)}) #okeysh
+lapply(obs, function(model){simulateResiduals(model, plot=T)}) #ok
 
-#emmeans: Post-hoc test
-obs.emmeans <- lapply(obs, function(model){
-              emmeans(model, pairwise ~  plant_pathway_induced)})
+#save result
+factors <- c("Treatment","Residuals")
+glm.p_table <- cbind (factors, obs.table$cond_phytohormones)
+glm.p_table$`Pr(>F)` <- round(glm.p_table$`Pr(>F)`, 3)
+table <- nice_table(glm.p_table,
+              title = c("Table X. GLM for observed number of ASVs (Richness) - Phyto"),
+              note = "~ plant_pathway_induced")
 
-#make it a df  
-obs.df <- lapply(obs.emmeans, function(emmeans){
-  emmeans$contrasts %>% summary(infer=TRUE) %>% as.data.frame()})
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/observed_phyto.docx")
+
+glm.i_table <- cbind (factors, obs.table$cond_real_insects)
+glm.i_table$`Pr(>F)` <- round(glm.i_table$`Pr(>F)`, 3)
+table <- nice_table(glm.i_table,
+              title = c("Table X. GLM for observed number of ASVs (Richness) - Insects"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/observed_insects.docx")
 
 ```
 
@@ -874,29 +1150,42 @@ descdist(richness$cond_phytohormones$Simpson, discrete = FALSE)
 
 ##2.Shannon
 shann <- lapply(richness, function(df){
-        lm(log(df$Shannon) ~ plant_pathway_induced + libsize_after_filtering,
+        lm(log(df$Shannon) ~ plant_pathway_induced,
                 data=df)})
 
 shann.table <- lapply(shann, function(model){
   car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
 })
 
-shann.table #both significant
+shann.table #both not significant
 
 #check if assumptions are met
 lapply(shann, function(model){simulateResiduals(model, plot=T)}) #ok
-lapply(shann, function(model){hist(resid(model))}) #normalish
-lapply(shann, function(model){ols_plot_resid_qq(model)}) #okeysh
-lapply(shann, function(model){ols_plot_resid_fit(model)}) #okeysh
 
-#emmeans: Post-hoc test
-lapply(shann, function(model){plot(emmeans(model, pairwise ~  plant_pathway_induced))}) 
-shann.emmeans <- lapply(shann, function(model){
-              emmeans(model, pairwise ~  plant_pathway_induced)})
 
-#df  
-shann.df <- lapply(shann.emmeans, function(emmeans){
-  emmeans$contrasts %>% summary(infer=TRUE) %>% as.data.frame()})
+#save result
+factors <- c("Intercept","Treatment","Residuals")
+lm.p_table <- cbind (factors, shann.table$cond_phytohormones)
+lm.p_table$`Pr(>F)` <- round(lm.p_table$`Pr(>F)`, 3)
+table <- nice_table(lm.p_table,
+              title = c("Table X. LM for Shannon - Phyto"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/shannon_phyto.docx")
+
+lm.i_table <- cbind (factors, shann.table$cond_real_insects)
+lm.i_table$`Pr(>F)` <- round(lm.i_table$`Pr(>F)`, 3)
+table <- nice_table(lm.i_table,
+              title = c("Table X. LM for Shannon - Insects"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/shannon_insects.docx")
 
 ```
 
@@ -907,9 +1196,9 @@ No difference, same shannon index value (and Simpson, very similar communities)
 
 ##3. Phylogenetic Diversity
 pd <- lapply(richness, function(df){
-        glm(log(df$PD) ~ plant_pathway_induced + libsize_after_filtering,
+        glm(log(df$PD) ~ plant_pathway_induced,
                 data=df,
-            family=quasipoisson())})
+            family=Gamma(link="log"))})
 
 pd.table <- lapply(pd, function(model){
   car::Anova(model, type="III", test.statistic="F")#using type III, as its unbalanced
@@ -918,24 +1207,49 @@ pd.table <- lapply(pd, function(model){
 pd.table #both signigicant
 
 #check if assumptions are met
-lapply(pd, function(model){hist(resid(model))}) #normalish
-lapply(pd, function(model){qqnorm(resid(model))}) #also
-lapply(pd, function(model){ols_plot_resid_qq(model)}) #okeysh
-lapply(pd, function(model){ols_plot_resid_fit(model)}) #okeysh
+lapply(pd, function(model){simulateResiduals(model, plot=T)}) #ok
 
 
-#emmeans: Post-hoc test
+#save result
+factors <- c("Treatment","Residuals")
+lm.p_table <- cbind (factors, pd.table$cond_phytohormones)
+lm.p_table$`Pr(>F)` <- round(lm.p_table$`Pr(>F)`, 3)
+table <- nice_table(lm.p_table,
+              title = c("Table X. GLM for Faith's PD - Phyto"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/PD_phyto.docx")
+
+lm.i_table <- cbind (factors, pd.table$cond_real_insects)
+lm.i_table$`Pr(>F)` <- round(lm.i_table$`Pr(>F)`, 3)
+table <- nice_table(lm.i_table,
+              title = c("Table X. GLM for Faith's PD - Insects"),
+              note = "~ plant_pathway_induced")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/01_alpha_beta_diversity/PD_insects.docx")
+
+
+#emmeans
 lapply(pd, function(model){plot(emmeans(model, pairwise ~  plant_pathway_induced))}) 
 pd.emmeans <- lapply(pd, function(model){
-              emmeans(model, pairwise ~  plant_pathway_induced)})
+              x <- emmeans(model, pairwise ~  plant_pathway_induced)
+              x <- multcomp::cld(x, adjust="sidak", Letters=letters)
+              return(x)})
 
-#df  
+#make it a df  
 pd.df <- lapply(pd.emmeans, function(emmeans){
-  emmeans$contrasts %>% summary(infer=TRUE) %>% as.data.frame()})
+  x <- as.data.frame(emmeans)
+  return(x)})
 
 ```
 
-No difference between treatments and controls 
+No difference between treatments and controls in any of the experiments 
 
 ###Results tables
 

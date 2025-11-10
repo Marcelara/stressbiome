@@ -390,7 +390,7 @@ ps_16S@sam_data$libsize_after_decontam <- sample_sums(ps_16S)
 sort(ps_16S@sam_data$libsize_after_decontam) #3 samples with very low reads 
 
 #clean
-rm(contamdf.freq, contamdf.both, contamdf.prev, pre, post, sums,
+rm(contamdf.freq, contamdf.prev, pre, post, sums,
      p_cont, ps_contam, ps_noncontam, contaminants.prev, contaminants.freq, contaminants.both)
 
 ```
@@ -542,7 +542,8 @@ reads_summary <- ps_16S@sam_data %>%
                  summarise(reads_per_sample = mean(libsize_after_filtering),
                            stdev=sd(libsize_after_filtering),
                            reads_kept_perc= mean(pct_reads_kept),
-                           stdev_perc=sd(pct_reads_kept))
+                           stdev_perc=sd(pct_reads_kept),
+                           n=n())
 
 #get summary info per treatment & experiment
 reads_summary.t <- ps_16S@sam_data %>% 
@@ -567,7 +568,7 @@ Now, save a split ps by experiment
 ps_16S_split <- phyloseq_sep_variable(ps_16S, variable=c("Experiment"), drop_zeroes = T)
 
 
-ps_Insects <- phyloseq_sep_variable(ps_16S_split$cond_real_insects, variable=c("plant_pathway_induced"), drop_zeroes = T)
+#ps_Insects <- phyloseq_sep_variable(ps_16S_split$cond_real_insects, variable=c("plant_pathway_induced"), drop_zeroes = T)
 
 
 #check how many ASVs per experiment

@@ -72,14 +72,14 @@ library(vegan)
 theme_set(theme_bw())
 
 #Set colors
-color_stress <- c("#BFBFBF", "#E69F00", "#4472C4")
+color_stress <- c("#BFBFBF", "#E69F00", "#319B67")
 color_experiment <- c("#CC3399", "#70AD47")
 
 color_ctrl_vs_JA <- c("#BFBFBF", "#E69F00")
-color_ctrl_vs_SA <- c("#BFBFBF",  "#4472C4")
+color_ctrl_vs_SA <- c("#BFBFBF",  "#319B67")
 color_control <- "#BFBFBF"
 color_JA <- "#E69F00"
-color_SA <- "#4472C4"
+color_SA <- "#319B67"
 color_experiment <- c("#CC3399", "#70AD47")
 fonts <- windowsFonts()
 
@@ -338,24 +338,28 @@ MetaData[,c(1:2)]<- lapply(MetaData[,c(1:2)], as.factor)
 
 #run PERMANOVA
 permanova <- adonis2(DistanceMatrix~Experiment*plant_pathway_induced,
-                      data=MetaData, permutations = 999, method="bray")
+                      data=MetaData, permutations = 999)
 
 #make table for Word
-. <- c("Experiment (E)", "Plant pathway induced (PPI)", "E*PPI", "Residual", "Total") #names of factors
+. <- c("Experiment (E)", "Treatment (T)", "E*T", "Residual", "Total") #names of factors
 permanova_table <- cbind (.,as.data.frame(permanova))
 
+permanova_table$`Pr(>F)` <- round(permanova_table$`Pr(>F)`, 3)
 table <- nice_table(permanova_table,
-              title = c("Table X. PERMANOVA for Plant Phytohormones", "Conditioning phase"),
-              note = "999 number of permutations")
+              title = c("PERMANOVA for Plant Phytohormones", "Conditioning phase"),
+              note = "~Experiment*plant_pathway_induced, 999 number of permutations")
 
-flextable::save_as_docx(table, path = "./Tables/02_phytohormones/permanova_phytohormones.docx")
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+flextable::save_as_docx(table, path = "./Tables/02_phytohormones/conditioning_permanova_phytohormones.docx")
 ```
 
 ```{r}
 #Run post-hoc tests
 
 #call pairwise.adonis2 function
-pairwise.adonis2 <- function(x, factors, sim.method = "bray", p.adjust.m = "bonferroni") {
+pairwise.adonis2 <- function(x, factors, sim.method = "euclidean", p.adjust.m = "bonferroni") {
     co = combn(unique(factors), 2)
     pairs = c()
     F.Model = c()
@@ -712,26 +716,29 @@ MetaData <-as.data.frame(metadata)
 MetaData[,c(1:3)]<- lapply(MetaData[,c(1:3)], as.factor)
 
 #run PERMANOVA
-permanova <- adonis2(DistanceMatrix~soil_inocula*herbivory*Experiment,
-                      data=MetaData, permutations = 999, method="euclidean")
+permanova <- adonis2(DistanceMatrix~Experiment+soil_inocula+herbivory,
+                      data=MetaData, permutations = 999) 
+
+#removed interactions as it makes it more difficult to interpret biologically, and R2 values from interactions are very small.
 
 #make table for Word
 #write names of factors
-. <- c("Soil inocula (S)", "Herbivory (H)", "Experiment (E)", "S*H", "S*E", "H*E", "S*H*E",
-       "Residual", "Total") #names of factors
+. <- c("Experiment(E)", "Soil inocula(S)", "Herbivory(H)", "Residual", "Total") #names of factors
 permanova_table <- cbind (.,as.data.frame(permanova)) #make it a df
-
-#keep 3 decimals after point for p values 
-permanova_table[,c(3:6)] <- format(permanova_table[,c(3:6)], digits = 3, nsmall = 3)
-permanova_table[,c(3:6)] <- lapply(permanova_table[,c(3:6)], as.numeric) #change it to numeric
+permanova_table$`Pr(>F)` <- round(permanova_table$`Pr(>F)`, 3)
 
 #make it a nice_table
 table <- nice_table(permanova_table,
               title = c("Table X. PERMANOVA for Plant Phytohormones", "Feedback phase",
-                        "DistanceMatrix~soil_inocula*herbivory*Experiment"),
+                        "DistanceMatrix~soil_inocula+herbivory+Experiment"),
               note = "999 number of permutations")
+
+table <- table %>%
+         flextable::colformat_num(big.mark = "", digits = 3) 
+
+
 #save it 
-flextable::save_as_docx(table, path = "./Tables/02_phytohormones/permanova_hormones_feedback.docx")
+flextable::save_as_docx(table, path = "./Tables/02_phytohormones/feedback_permanova_phytohormones.docx")
 
 
 ```
